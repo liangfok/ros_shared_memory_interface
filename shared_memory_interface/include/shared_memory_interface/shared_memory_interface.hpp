@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
+#include <boost/thread.hpp>
 
 namespace shared_memory_interface
 {
@@ -27,7 +28,7 @@ namespace shared_memory_interface
     bool publishFPVector(std::string field, std::vector<double>& data);
     bool publishFPMatrix(std::string field, std::vector<double>& data); //TODO: add implementation that takes an actual matrix type
 
-    bool subscribeStringVector(std::string field, boost::function<void(std::vector<double>&)> callback);
+    bool subscribeStringVector(std::string field, boost::function<void(std::vector<std::string>&)> callback);
     bool subscribeFPVector(std::string field, boost::function<void(std::vector<double>&)> callback);
     bool subscribeFPMatrix(std::string field, boost::function<void(std::vector<double>&)> callback);
 
@@ -39,6 +40,13 @@ namespace shared_memory_interface
   private:
     SharedMemoryTransport m_smt;
     std::string m_interface_name;
+    std::map<std::string, boost::function<void(std::vector<double>&)> > m_FP_subscriptions;
+    std::map<std::string, boost::function<void(std::vector<std::string>&)> > m_string_subscriptions;
+//    std::map<std::string, boost::function<> > m_generic_subscriptions;
+    boost::thread* m_callback_thread;
+    bool m_shutdown;
+
+    void callbackThreadFunction();
   };
 
 }

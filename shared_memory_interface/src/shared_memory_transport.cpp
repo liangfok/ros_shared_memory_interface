@@ -105,7 +105,7 @@ namespace shared_memory_interface
     boost::interprocess::named_mutex::remove(mutex_name.c_str());
   }
 
-  bool SharedMemoryTransport::addMatrixField(std::string field_name, unsigned long rows, unsigned long cols, std::string sm_namespace)
+  bool SharedMemoryTransport::addFPMatrixField(std::string field_name, unsigned long rows, unsigned long cols)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -114,17 +114,17 @@ namespace shared_memory_interface
     try
     {
       boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-      if(segment.find<SMDoubleVector>((sm_namespace + field_name).c_str()).first)
+      if(segment.find<SMDoubleVector>(field_name.c_str()).first)
       {
         //TODO:make sure it's the dimensions we think it should be
-        std::cerr << "Found existing field " << sm_namespace + field_name << std::endl;
+        std::cerr << "Found existing field " << field_name << std::endl;
         PRINT_TRACE_EXIT
         return true; //field already exists, so we're done
       }
     }
     catch(boost::interprocess::interprocess_exception &ex)
     {
-      std::cerr << "SharedMemoryTransport: Exception " << ex.what() << " thrown while testing existing of field \"" << field_name << "\"!" << std::endl;
+      std::cerr << "SharedMemoryTransport: Exception " << ex.what() << " thrown while testing existance of field \"" << field_name << "\"!" << std::endl;
       PRINT_TRACE_EXIT
       return false;
     }
@@ -137,10 +137,10 @@ namespace shared_memory_interface
       {
         boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
         const ShmemDoubleAllocator alloc_double_inst(segment.get_segment_manager());
-        SMDoubleVector* vector = segment.construct<SMDoubleVector>((sm_namespace + field_name).c_str())(alloc_double_inst);
+        SMDoubleVector* vector = segment.construct<SMDoubleVector>(field_name.c_str())(alloc_double_inst);
         vector->resize(rows * cols, 0.0);
-        segment.construct<bool>(std::string(sm_namespace + field_name + "_new_data_flag").c_str())(false);
-        segment.construct<unsigned long>((sm_namespace + field_name + "_row_stride").c_str())(cols); //row_stride = number of cols in each row
+        segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
+        segment.construct<unsigned long>((field_name + "_row_stride").c_str())(cols); //row_stride = number of cols in each row
       }
       boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str()); //don't overuse memory
     }
@@ -155,61 +155,68 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::addJointField(std::string field_name, unsigned long num_joints, std::string sm_namespace)
+  bool SharedMemoryTransport::addSVField(std::string field_name, unsigned long length)
   {
     PRINT_TRACE_ENTER
-    bool success = addMatrixField(field_name, 1, num_joints, sm_namespace);
+    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
+
+    //check to see if someone else created the field
+    try
+    {
+      boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
+      if(segment.find<SMStringVector>(field_name.c_str()).first)
+      {
+        //TODO:make sure it's the dimensions we think it should be
+        std::cerr << "Found existing field " << field_name << std::endl;
+        PRINT_TRACE_EXIT
+        return true; //field already exists, so we're done
+      }
+    }
+    catch(boost::interprocess::interprocess_exception &ex)
+    {
+      std::cerr << "SharedMemoryTransport: Exception " << ex.what() << " thrown while testing existance of field \"" << field_name << "\"!" << std::endl;
+      PRINT_TRACE_EXIT
+      return false;
+    }
+
+    //no one did, so we'll make it ourselves
+    try
+    {
+      boost::interprocess::managed_shared_memory::grow(m_data_name.c_str(), length * sizeof(char) + 4096); //add space for the new field's data + overhead
+
+      {
+        boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
+
+        const ShmemCharAllocator alloc_char_inst(segment.get_segment_manager());
+        SMStringVector* strings_sm = segment.construct<SMStringVector>(field_name.c_str())(segment.get_segment_manager());
+        for(unsigned long i = 0; i < length; i++)
+        {
+          ShmemString string(alloc_char_inst);
+          string = "";
+          strings_sm->push_back(string);
+        }
+        segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
+      }
+
+      boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str()); //don't overuse memory
+    }
+    catch(boost::interprocess::interprocess_exception &ex)
+    {
+      std::cerr << "SharedMemoryTransport: Exception " << ex.what() << " thrown while creating new field \"" << field_name << "\"!" << std::endl;
+      PRINT_TRACE_EXIT
+      return false;
+    }
+
     PRINT_TRACE_EXIT
-    return success;
-//    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
-//
-//    //check to see if someone else created the field
-//    try
-//    {
-//      boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-//      if(segment.find<SMDoubleVector>((sm_namespace + field).c_str()).first)
-//      {
-//        //TODO:make sure it's the length we think it should be
-//        return true; //field already exists, so we're done
-//      }
-//    }
-//    catch(boost::interprocess::interprocess_exception &ex)
-//    {
-//      std::cerr << "SharedMemoryTransport: Exception " << ex.what() << " thrown while testing existing of field \"" << field_name << "\"!" << std::endl;
-//      return false;
-//    }
-//
-//    //no one did, so we'll make it ourselves
-//    try
-//    {
-//      unsigned long size = num_joints * sizeof(double) + 4096;
-//      std::cerr << "\n\nTrying to grow by " << size << "bytes...";
-//      boost::interprocess::managed_shared_memory::grow(m_data_name.c_str(), size); //add space for the new field's data + overhead
-//      std::cerr << "Success!\n";
-//      {
-//        boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-//        const ShmemDoubleAllocator alloc_double_inst(segment.get_segment_manager());
-//        SMDoubleVector* vector = segment.construct<SMDoubleVector>((sm_namespace + field).c_str())(alloc_double_inst);
-//        vector->resize(num_joints, 0.0);
-//        segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
-//      }
-//      boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str()); //don't overuse memory
-//    }
-//    catch(boost::interprocess::interprocess_exception &ex)
-//    {
-//      std::cerr << "SharedMemoryTransport: Exception " << ex.what() << " thrown while creating new field \"" << field_name << "\"!" << std::endl;
-//      return false;
-//    }
-//
-//    return true;
+    return true;
   }
 
-  bool SharedMemoryTransport::getData(std::string field, unsigned long joint_idx, double& data, std::string sm_namespace)
+  bool SharedMemoryTransport::getFPData(std::string field, unsigned long joint_idx, double& data)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-    SMDoubleVector* field_data_sm = segment.find<SMDoubleVector>((sm_namespace + field).c_str()).first;
+    SMDoubleVector* field_data_sm = segment.find<SMDoubleVector>(field.c_str()).first;
     if(field_data_sm == 0) //no one has set the joint names yet
     {
       PRINT_TRACE_EXIT
@@ -220,12 +227,12 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::setData(std::string field, unsigned long joint_idx, double value, std::string sm_namespace)
+  bool SharedMemoryTransport::setFPData(std::string field, unsigned long joint_idx, double value)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-    SMDoubleVector* field_data_sm = segment.find<SMDoubleVector>((sm_namespace + field).c_str()).first;
+    SMDoubleVector* field_data_sm = segment.find<SMDoubleVector>(field.c_str()).first;
     if(field_data_sm == 0) //no one has set the joint names yet
     {
       PRINT_TRACE_EXIT
@@ -236,12 +243,12 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::getField(std::string field, std::vector<double>& field_data_local, std::string sm_namespace)
+  bool SharedMemoryTransport::getFPField(std::string field, std::vector<double>& field_data_local)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-    SMDoubleVector* field_data_sm = segment.find<SMDoubleVector>((sm_namespace + field).c_str()).first;
+    SMDoubleVector* field_data_sm = segment.find<SMDoubleVector>(field.c_str()).first;
     if(field_data_sm == 0) //no one has set the joint names yet
     {
       PRINT_TRACE_EXIT
@@ -258,12 +265,12 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::setField(std::string field, std::vector<double>& field_data_local, std::string sm_namespace)
+  bool SharedMemoryTransport::setFPField(std::string field, std::vector<double>& field_data_local)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-    SMDoubleVector* field_data_sm = segment.find<SMDoubleVector>((sm_namespace + field).c_str()).first;
+    SMDoubleVector* field_data_sm = segment.find<SMDoubleVector>(field.c_str()).first;
     if(field_data_sm == 0) //field doesn't exist yet
     {
       PRINT_TRACE_EXIT
@@ -272,7 +279,7 @@ namespace shared_memory_interface
 
     if(field_data_local.size() != field_data_sm->size())
     {
-      std::cerr << "SMCI: Tried to set field " << (sm_namespace + field) << " of size " << field_data_sm->size() << " with data of size " << field_data_local.size() << "!" << std::endl;
+      std::cerr << "SMCI: Tried to set field " << field << " of size " << field_data_sm->size() << " with data of size " << field_data_local.size() << "!" << std::endl;
       PRINT_TRACE_EXIT
       return false;
     }
@@ -285,55 +292,58 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::getJointNames(std::vector<std::string>& names_local, std::string sm_namespace)
+  bool SharedMemoryTransport::getSVField(std::string field_name, std::vector<std::string>& strings_local)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-    std::string full_name = sm_namespace + "names";
-    SMStringVector* names_sm = segment.find<SMStringVector>(full_name.c_str()).first;
-    std::cerr << "Getting joint names\n";
-    if(names_sm == 0) //no one has set the joint names yet
+    SMStringVector* strings_sm = segment.find<SMStringVector>(field_name.c_str()).first;
+    if(strings_sm == 0) //no one has set the joint strings yet
     {
-      std::cerr << "Joint names not found!";
       PRINT_TRACE_EXIT
       return false;
     }
 
-    for(unsigned int i = 0; i < names_sm->size(); i++)
+    for(unsigned int i = 0; i < strings_sm->size(); i++)
     {
-      std::string name = std::string(names_sm->at(i).begin(), names_sm->at(i).end());
-      names_local.push_back(name);
+      std::string string = std::string(strings_sm->at(i).begin(), strings_sm->at(i).end());
+      strings_local.push_back(string);
     }
+
     PRINT_TRACE_EXIT
     return true;
   }
 
-  //TODO: make everything use full_name format
-  bool SharedMemoryTransport::setJointNames(std::vector<std::string> names_local, std::string sm_namespace)
+  bool SharedMemoryTransport::setSVField(std::string field_name, std::vector<std::string>& strings_local)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
-    std::string full_name = sm_namespace + "names";
 
-    //assume that the names object either does not exist, or needs to be resized anyway, so destroy it if necessary and make it again
-    //general use case is that this only gets called once per joint_set, so this isn't a problem
+    unsigned long total_length = 0;
     {
       boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-      if(segment.find<SMStringVector>(full_name.c_str()).first)
+      SMStringVector* strings_sm = segment.find<SMStringVector>(field_name.c_str()).first;
+      if(strings_sm == 0) //no one has set the joint strings yet
       {
-        segment.destroy<SMStringVector>(full_name.c_str());
+        PRINT_TRACE_EXIT
+        return false;
+      }
+
+      if(strings_sm->size() != strings_local.size())
+      {
+        std::cerr << "SMCI: Tried to set string field " << field_name << " of size " << strings_sm->size() << " with data of size " << strings_local.size() << "!" << std::endl;
+        PRINT_TRACE_EXIT
+        return false;
+      }
+
+      //figure out how much extra memory we need to store the strings
+      for(unsigned int i = 0; i < strings_local.size(); i++)
+      {
+        total_length += strings_local.at(i).length();
       }
     }
 
-    //figure out how much memory we need to store the strings
-    unsigned long total_length = 0;
-    for(unsigned int i = 0; i < names_local.size(); i++)
-    {
-      total_length += names_local.at(i).length();
-    }
-
-    //(re)make the object and populate it
+    //populate the object
     try
     {
       boost::interprocess::managed_shared_memory::grow(m_data_name.c_str(), total_length * sizeof(char) + 4096); //add space for the new field's data + overhead
@@ -342,19 +352,21 @@ namespace shared_memory_interface
         boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
 
         const ShmemCharAllocator alloc_char_inst(segment.get_segment_manager());
-        SMStringVector* names_sm = segment.construct<SMStringVector>(full_name.c_str())(segment.get_segment_manager());
-        for(unsigned int i = 0; i < names_local.size(); i++)
+        SMStringVector* strings_sm = segment.find<SMStringVector>(field_name.c_str()).first;
+        strings_sm->clear();
+        for(unsigned int i = 0; i < strings_local.size(); i++)
         {
-          ShmemString name(alloc_char_inst);
-          name = names_local.at(i).c_str();
-          names_sm->push_back(name);
+          ShmemString string(alloc_char_inst);
+          string = strings_local.at(i).c_str();
+          strings_sm->push_back(string);
         }
       }
+
       boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str()); //don't overuse memory
     }
     catch(boost::interprocess::interprocess_exception &ex)
     {
-      std::cerr << "SharedMemoryTransport: Exception " << ex.what() << " thrown while setting names for joint namespace \"" << sm_namespace << "\"!" << std::endl;
+      std::cerr << "SharedMemoryTransport: Exception " << ex.what() << " thrown while setting string field \"" << field_name << "\"!" << std::endl;
       PRINT_TRACE_EXIT
       return false;
     }
@@ -443,7 +455,7 @@ namespace shared_memory_interface
     return (*connection_tokens) > 1;
   }
 
-  bool SharedMemoryTransport::hasNew(std::string field_name, std::string sm_namespace)
+  bool SharedMemoryTransport::hasNew(std::string field_name)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -453,7 +465,7 @@ namespace shared_memory_interface
     return (flag == 0)? false : *flag; //always false if the field doesn't exist
   }
 
-  bool SharedMemoryTransport::signalAvailable(std::string field_name, std::string sm_namespace)
+  bool SharedMemoryTransport::signalAvailable(std::string field_name)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -470,7 +482,7 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::signalProcessed(std::string field_name, std::string sm_namespace)
+  bool SharedMemoryTransport::signalProcessed(std::string field_name)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);

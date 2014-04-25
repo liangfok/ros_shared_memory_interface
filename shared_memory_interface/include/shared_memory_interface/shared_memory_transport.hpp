@@ -29,21 +29,24 @@ namespace shared_memory_interface
 
     static void destroyMemory(std::string interface_name);
 
-    bool addMatrixField(std::string field_name, unsigned long rows, unsigned long cols, std::string sm_namespace = "");
+    //FP=> floating point
+    //SV=> string vector
 
-    bool addJointField(std::string field_name, unsigned long num_joints, std::string sm_namespace = "");
+    bool addFPMatrixField(std::string field_name, unsigned long rows, unsigned long cols);
 
-    bool getData(std::string field, unsigned long joint_idx, double& data, std::string sm_namespace = "");
+    bool addSVField(std::string field_name, unsigned long length);
 
-    bool setData(std::string field, unsigned long joint_idx, double value, std::string sm_namespace = "");
+    bool getFPData(std::string field_name, unsigned long joint_idx, double& data);
 
-    bool getField(std::string field, std::vector<double>& field_data_local, std::string sm_namespace = "");
+    bool setFPData(std::string field_name, unsigned long joint_idx, double value);
 
-    bool setField(std::string field, std::vector<double>& field_data_local, std::string sm_namespace = "");
+    bool getFPField(std::string field_name, std::vector<double>& field_data_local);
 
-    bool getJointNames(std::vector<std::string>& names_local, std::string sm_namespace = "");
+    bool setFPField(std::string field_name, std::vector<double>& field_data_local);
 
-    bool setJointNames(std::vector<std::string> names_local, std::string sm_namespace = "");
+    bool getSVField(std::string field_name, std::vector<std::string>& names_local);
+
+    bool setSVField(std::string field_name, std::vector<std::string>& names_local);
 
     bool setTxSequenceNumber(unsigned char value);
 
@@ -55,11 +58,11 @@ namespace shared_memory_interface
 
     bool hasConnections();
 
-    bool hasNew(std::string field_name, std::string sm_namespace = "");
+    bool hasNew(std::string field_name);
 
-    bool signalAvailable(std::string field_name, std::string sm_namespace = "");
+    bool signalAvailable(std::string field_name);
 
-    bool signalProcessed(std::string field_name, std::string sm_namespace = "");
+    bool signalProcessed(std::string field_name);
 
   private:
     boost::interprocess::named_mutex* m_mutex;
