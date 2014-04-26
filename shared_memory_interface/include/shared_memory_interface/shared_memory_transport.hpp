@@ -8,6 +8,7 @@
 #include <boost/interprocess/mapped_region.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
 #include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/interprocess/sync/named_condition.hpp>
 #include <boost/interprocess/sync/scoped_lock.hpp>
 
 #include <boost/interprocess/containers/vector.hpp>
@@ -64,7 +65,9 @@ namespace shared_memory_interface
 
     bool hasConnections();
 
-    bool hasNew(std::string field_name);
+    bool hasNewData(std::string field_name);
+
+    void awaitNewData(std::string field_name);
 
     bool signalAvailable(std::string field_name);
 

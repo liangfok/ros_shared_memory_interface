@@ -103,7 +103,7 @@ namespace shared_memory_interface
       typedef std::map<std::string, boost::function<void(std::vector<double>&)> >::iterator FPMapIter;
       for(FPMapIter iter = m_FP_subscriptions.begin(); iter != m_FP_subscriptions.end(); iter++)
       {
-        if(m_smt.hasNew(iter->first))
+        if(m_smt.hasNewData(iter->first))
         {
           std::vector<double> data;
           m_smt.getFPField(iter->first, data);
@@ -115,7 +115,7 @@ namespace shared_memory_interface
       typedef std::map<std::string, boost::function<void(std::vector<std::string>&)> >::iterator StringMapIter;
       for(StringMapIter iter = m_string_subscriptions.begin(); iter != m_string_subscriptions.end(); iter++)
       {
-        if(m_smt.hasNew(iter->first))
+        if(m_smt.hasNewData(iter->first))
         {
           std::vector<std::string> data;
           m_smt.getSVField(iter->first, data);
@@ -128,7 +128,7 @@ namespace shared_memory_interface
       typedef std::map<std::string, SubscriptionInfo>::iterator SerializedMapIter;
       for(SerializedMapIter iter = m_serialized_subscriptions.begin(); iter != m_serialized_subscriptions.end(); iter++)
       {
-        if(m_smt.hasNew(iter->first))
+        if(m_smt.hasNewData(iter->first))
         {
           std::cerr << iter->first << " has new data!\n";
           std::string serialized_data;

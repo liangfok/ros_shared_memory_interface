@@ -89,25 +89,26 @@ namespace shared_memory_interface
     void serializedCallbackThreadFunction(std::string field_name, boost::function<void(T&)> callback)
     {
       typedef typename ros::ParameterAdapter<T>::Message MessageType;
-      while(true)
+      while(!m_shutdown)
       {
-        if(m_smt.hasNew(field_name))
+        m_smt.awaitNewData(field_name);
+
+        assert(m_smt.hasNewData(field_name));
+
+        std::string serialized_data, md5sum, datatype;
+        m_smt.getSerializedField(field_name, serialized_data, md5sum, datatype);
+        m_smt.signalProcessed(field_name);
+
+        if(serialized_data == "")
         {
-          std::string serialized_data, md5sum, datatype;
-          m_smt.getSerializedField(field_name, serialized_data, md5sum, datatype);
-          m_smt.signalProcessed(field_name);
-
-          if(serialized_data == "")
-          {
-            std::cerr << "Serial data empty even though flag was set!";
-            continue;
-          }
-
-          T msg;
-          ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
-          ros::serialization::deserialize(istream, msg);
-          callback(msg);
+          std::cerr << "Serial data empty even though flag was set!";
+          continue;
         }
+
+        T msg;
+        ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
+        ros::serialization::deserialize(istream, msg);
+        callback(msg);
       }
     }
 

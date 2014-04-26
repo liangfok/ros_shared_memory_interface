@@ -577,7 +577,7 @@ namespace shared_memory_interface
     return (*connection_tokens) > 1;
   }
 
-  bool SharedMemoryTransport::hasNew(std::string field_name)
+  bool SharedMemoryTransport::hasNewData(std::string field_name)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -585,6 +585,25 @@ namespace shared_memory_interface
     bool* flag = segment.find<bool>(std::string(field_name + "_new_data_flag").c_str()).first;
     PRINT_TRACE_EXIT
     return (flag == 0)? false : *flag; //always false if the field doesn't exist
+  }
+
+  void SharedMemoryTransport::awaitNewData(std::string field_name)
+  {
+    PRINT_TRACE_ENTER
+    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
+    boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
+
+    bool* flag = segment.find<bool>(std::string(field_name + "_new_data_flag").c_str()).first;
+
+    if((flag == 0)? false : *flag) //the data is already ready
+    {
+      return;
+    }
+
+    //TODO: destroy these conditions!
+    boost::interprocess::named_condition* cond = new boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str());
+    cond->wait(lock);
+    PRINT_TRACE_EXIT
   }
 
   bool SharedMemoryTransport::signalAvailable(std::string field_name)
@@ -598,6 +617,9 @@ namespace shared_memory_interface
       PRINT_TRACE_EXIT
       return false;
     }
+
+    boost::interprocess::named_condition* cond = new boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str());
+    cond->notify_all();
 
     *flag = true;
     PRINT_TRACE_EXIT
