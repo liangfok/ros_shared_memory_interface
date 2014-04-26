@@ -18,3 +18,9 @@ rosbuild_add_library(shared_memory_interface src/shared_memory_transport.cpp src
 
 rosbuild_add_executable(sm_watchdog src/sm_watchdog.cpp)
 target_link_libraries(sm_watchdog shared_memory_interface)
+
+rosbuild_add_executable(tutorial_talker src/tutorial_talker.cpp)
+target_link_libraries(tutorial_talker shared_memory_interface)
+
+rosbuild_add_executable(tutorial_listener src/tutorial_listener.cpp)
+target_link_libraries(tutorial_listener shared_memory_interface)

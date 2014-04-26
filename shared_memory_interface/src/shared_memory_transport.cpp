@@ -6,18 +6,18 @@ namespace shared_memory_interface
 #define PRINT_TRACE_ENTER if(TRACE)std::cerr<<__func__<<std::endl;
 #define PRINT_TRACE_EXIT if(TRACE)std::cerr<<"/"<<__func__<<std::endl;
 
-  typedef boost::interprocess::allocator<double, boost::interprocess::managed_shared_memory::segment_manager> ShmemDoubleAllocator;
-  typedef boost::interprocess::vector<double, ShmemDoubleAllocator> SMDoubleVector;
+  typedef boost::interprocess::allocator<double, boost::interprocess::managed_shared_memory::segment_manager> SMDoubleAllocator;
+  typedef boost::interprocess::vector<double, SMDoubleAllocator> SMDoubleVector;
 
-  typedef boost::interprocess::allocator<char, boost::interprocess::managed_shared_memory::segment_manager> ShmemCharAllocator;
-  typedef boost::interprocess::basic_string<char, std::char_traits<char>, ShmemCharAllocator> ShmemString;
-  typedef boost::interprocess::allocator<ShmemString, boost::interprocess::managed_shared_memory::segment_manager> ShmemStringAllocator;
-  typedef boost::interprocess::vector<ShmemString, ShmemStringAllocator> SMStringVector;
+  typedef boost::interprocess::allocator<char, boost::interprocess::managed_shared_memory::segment_manager> SMCharAllocator;
+  typedef boost::interprocess::basic_string<char, std::char_traits<char>, SMCharAllocator> SMString;
+  typedef boost::interprocess::allocator<SMString, boost::interprocess::managed_shared_memory::segment_manager> SMStringAllocator;
+  typedef boost::interprocess::vector<SMString, SMStringAllocator> SMStringVector;
 
   SharedMemoryTransport::SharedMemoryTransport(std::string interface_name)
   {
     PRINT_TRACE_ENTER
-    std::cerr << "Initializing SMCI" << std::endl;
+    std::cerr << "Initializing SharedMemoryTransport" << std::endl;
     m_interface_name = interface_name;
     m_mutex_name = interface_name + "_mutex";
     m_data_name = interface_name + "_data";
@@ -136,7 +136,7 @@ namespace shared_memory_interface
       boost::interprocess::managed_shared_memory::grow(m_data_name.c_str(), size); //add space for the new field's data + overhead
       {
         boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-        const ShmemDoubleAllocator alloc_double_inst(segment.get_segment_manager());
+        const SMDoubleAllocator alloc_double_inst(segment.get_segment_manager());
         SMDoubleVector* vector = segment.construct<SMDoubleVector>(field_name.c_str())(alloc_double_inst);
         vector->resize(rows * cols, 0.0);
         segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
@@ -187,14 +187,70 @@ namespace shared_memory_interface
       {
         boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
 
-        const ShmemCharAllocator alloc_char_inst(segment.get_segment_manager());
+        const SMCharAllocator alloc_char_inst(segment.get_segment_manager());
         SMStringVector* strings_sm = segment.construct<SMStringVector>(field_name.c_str())(segment.get_segment_manager());
         for(unsigned long i = 0; i < length; i++)
         {
-          ShmemString string(alloc_char_inst);
+          SMString string(alloc_char_inst);
           string = "";
           strings_sm->push_back(string);
         }
+        segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
+      }
+
+      boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str()); //don't overuse memory
+    }
+    catch(boost::interprocess::interprocess_exception &ex)
+    {
+      std::cerr << "SharedMemoryTransport: Exception " << ex.what() << " thrown while creating new field \"" << field_name << "\"!" << std::endl;
+      PRINT_TRACE_EXIT
+      return false;
+    }
+
+    PRINT_TRACE_EXIT
+    return true;
+  }
+
+  bool SharedMemoryTransport::addSerializedField(std::string field_name, std::string md5sum, std::string datatype)
+  {
+    PRINT_TRACE_ENTER
+    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
+
+    //check to see if someone else created the field
+    try
+    {
+      boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
+      if(segment.find<SMString>(field_name.c_str()).first)
+      {
+        std::cerr << "Found existing field " << field_name << std::endl;
+        PRINT_TRACE_EXIT
+        return true; //field already exists, so we're done
+      }
+    }
+    catch(boost::interprocess::interprocess_exception &ex)
+    {
+      std::cerr << "SharedMemoryTransport: Exception " << ex.what() << " thrown while testing existance of field \"" << field_name << "\"!" << std::endl;
+      PRINT_TRACE_EXIT
+      return false;
+    }
+
+    //no one did, so we'll make it ourselves
+    try
+    {
+      boost::interprocess::managed_shared_memory::grow(m_data_name.c_str(), 4096); //add space for the new field's data + overhead
+
+      {
+        boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
+
+        const SMCharAllocator alloc_char_inst(segment.get_segment_manager());
+        SMString* string_sm = segment.construct<SMString>(field_name.c_str())(alloc_char_inst);
+        *string_sm = "";
+
+        SMString* md5sum_sm = segment.construct<SMString>((field_name + "_md5sum").c_str())(alloc_char_inst);
+        SMString* datatype_sm = segment.construct<SMString>((field_name + "_datatype").c_str())(alloc_char_inst);
+        *md5sum_sm = md5sum.c_str();
+        *datatype_sm = datatype.c_str();
+
         segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
       }
 
@@ -279,7 +335,7 @@ namespace shared_memory_interface
 
     if(field_data_local.size() != field_data_sm->size())
     {
-      std::cerr << "SMCI: Tried to set field " << field << " of size " << field_data_sm->size() << " with data of size " << field_data_local.size() << "!" << std::endl;
+      std::cerr << "SharedMemoryTransport: Tried to set field " << field << " of size " << field_data_sm->size() << " with data of size " << field_data_local.size() << "!" << std::endl;
       PRINT_TRACE_EXIT
       return false;
     }
@@ -331,7 +387,7 @@ namespace shared_memory_interface
 
       if(strings_sm->size() != strings_local.size())
       {
-        std::cerr << "SMCI: Tried to set string field " << field_name << " of size " << strings_sm->size() << " with data of size " << strings_local.size() << "!" << std::endl;
+        std::cerr << "SharedMemoryTransport: Tried to set string field " << field_name << " of size " << strings_sm->size() << " with data of size " << strings_local.size() << "!" << std::endl;
         PRINT_TRACE_EXIT
         return false;
       }
@@ -351,12 +407,12 @@ namespace shared_memory_interface
       {
         boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
 
-        const ShmemCharAllocator alloc_char_inst(segment.get_segment_manager());
+        const SMCharAllocator alloc_char_inst(segment.get_segment_manager());
         SMStringVector* strings_sm = segment.find<SMStringVector>(field_name.c_str()).first;
         strings_sm->clear();
         for(unsigned int i = 0; i < strings_local.size(); i++)
         {
-          ShmemString string(alloc_char_inst);
+          SMString string(alloc_char_inst);
           string = strings_local.at(i).c_str();
           strings_sm->push_back(string);
         }
@@ -370,6 +426,72 @@ namespace shared_memory_interface
       PRINT_TRACE_EXIT
       return false;
     }
+
+    PRINT_TRACE_EXIT
+    return true;
+  }
+
+  bool SharedMemoryTransport::getSerializedField(std::string field_name, std::string& data, std::string& md5sum, std::string& datatype)
+  {
+    PRINT_TRACE_ENTER
+    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
+    boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
+    SMString* field_data_sm = segment.find<SMString>(field_name.c_str()).first;
+    SMString* field_md5sum_sm = segment.find<SMString>((field_name + "_md5sum").c_str()).first;
+    SMString* field_datatype_sm = segment.find<SMString>((field_name + "_datatype").c_str()).first;
+    if(field_data_sm == 0) //field doesn't exist yet
+    {
+      std::cerr << "Couldn't find field " << field_name << std::endl;
+      PRINT_TRACE_EXIT
+      return false;
+    }
+
+    data = std::string(field_data_sm->begin(), field_data_sm->end());
+    md5sum = std::string(field_md5sum_sm->begin(), field_md5sum_sm->end());
+    datatype = std::string(field_datatype_sm->begin(), field_datatype_sm->end());
+
+    PRINT_TRACE_EXIT
+    return true;
+  }
+
+  bool SharedMemoryTransport::setSerializedField(std::string field_name, std::string data, std::string md5sum, std::string datatype)
+  {
+    PRINT_TRACE_ENTER
+    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
+
+    boost::interprocess::managed_shared_memory::grow(m_data_name.c_str(), data.length() * sizeof(char) + 4096); //add space for the new field's data + overhead
+
+    {
+      boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
+      SMString* field_data_sm = segment.find<SMString>(field_name.c_str()).first;
+      SMString* field_md5sum_sm = segment.find<SMString>((field_name + "_md5sum").c_str()).first;
+      SMString* field_datatype_sm = segment.find<SMString>((field_name + "_datatype").c_str()).first;
+
+      if(field_data_sm == 0) //field doesn't exist yet
+      {
+        std::cerr << "Couldn't find field " << field_name << std::endl;
+        PRINT_TRACE_EXIT
+        return false;
+      }
+      std::string md5sum_sm = std::string(field_md5sum_sm->begin(), field_md5sum_sm->end());
+      std::string datatype_sm = std::string(field_datatype_sm->begin(), field_datatype_sm->end());
+      if(md5sum_sm != md5sum)
+      {
+        std::cerr << "SharedMemoryTransport: md5sum doesn't match for field " << field_name << "!" << std::endl;
+        PRINT_TRACE_EXIT
+        return false;
+      }
+      if(datatype_sm != datatype)
+      {
+        std::cerr << "SharedMemoryTransport: datatype doesn't match for field " << field_name << "!" << std::endl;
+        PRINT_TRACE_EXIT
+        return false;
+      }
+
+      *field_data_sm = SMString(data.begin(), data.end(), segment.get_segment_manager());
+    }
+
+    boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str()); //don't overuse memory
 
     PRINT_TRACE_EXIT
     return true;

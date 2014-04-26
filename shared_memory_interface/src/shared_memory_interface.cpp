@@ -5,9 +5,9 @@ namespace shared_memory_interface
   SharedMemoryInterface::SharedMemoryInterface(std::string interface_name) :
       m_smt(interface_name)
   {
+    m_shutdown = false;
     m_interface_name = interface_name;
     m_callback_thread = new boost::thread(boost::bind(&SharedMemoryInterface::callbackThreadFunction, this));
-    m_shutdown = false;
   }
 
   SharedMemoryInterface::~SharedMemoryInterface()
@@ -39,17 +39,38 @@ namespace shared_memory_interface
 
   bool SharedMemoryInterface::publishStringVector(std::string field_name, std::vector<std::string>& data)
   {
-    return m_smt.setSVField(field_name, data);
+    if(m_smt.setSVField(field_name, data))
+    {
+      if(m_smt.signalAvailable(field_name))
+      {
+        return true;
+      }
+    }
+    return false;
   }
 
   bool SharedMemoryInterface::publishFPVector(std::string field_name, std::vector<double>& data)
   {
-    return m_smt.setFPField(field_name, data);
+    if(m_smt.setFPField(field_name, data))
+    {
+      if(m_smt.signalAvailable(field_name))
+      {
+        return true;
+      }
+    }
+    return false;
   }
 
   bool SharedMemoryInterface::publishFPMatrix(std::string field_name, std::vector<double>& data)
   {
-    return m_smt.setFPField(field_name, data);
+    if(m_smt.setFPField(field_name, data))
+    {
+      if(m_smt.signalAvailable(field_name))
+      {
+        return true;
+      }
+    }
+    return false;
   }
 
   bool SharedMemoryInterface::subscribeStringVector(std::string field_name, boost::function<void(std::vector<std::string>&)> callback)
@@ -70,14 +91,12 @@ namespace shared_memory_interface
     return true;
   }
 
-  //generic implementations, works with any ROS message type
-  //TODO
-
   //callback
   void SharedMemoryInterface::callbackThreadFunction()
   {
     //TODO: use conditional variables to improve efficiency
     //TODO: add ability to get current value even if not new
+    //TODO: attempt to merge all the subscription maps
     while(!m_shutdown)
     {
       //todo: scoped mutex to prevent callback addition while we're checking
@@ -89,6 +108,7 @@ namespace shared_memory_interface
           std::vector<double> data;
           m_smt.getFPField(iter->first, data);
           iter->second(data);
+          m_smt.signalProcessed(iter->first);
         }
       }
 
@@ -97,12 +117,39 @@ namespace shared_memory_interface
       {
         if(m_smt.hasNew(iter->first))
         {
-          //TODO:
-        std::vector<std::string> data;
-        m_smt.getSVField(iter->first, data);
-        iter->second(data);
+          std::vector<std::string> data;
+          m_smt.getSVField(iter->first, data);
+          iter->second(data);
+          m_smt.signalProcessed(iter->first);
         }
       }
+
+#if(USE_ROS)
+      typedef std::map<std::string, SubscriptionInfo>::iterator SerializedMapIter;
+      for(SerializedMapIter iter = m_serialized_subscriptions.begin(); iter != m_serialized_subscriptions.end(); iter++)
+      {
+        if(m_smt.hasNew(iter->first))
+        {
+          std::cerr << iter->first << " has new data!\n";
+          std::string serialized_data;
+          m_smt.getSerializedField(iter->first, serialized_data, iter->second.md5sum, iter->second.datatype);
+
+          boost::shared_array<unsigned char> buf((unsigned char*) (const_cast<char *>(serialized_data.c_str())));
+          ros::SerializedMessage serialized_msg(buf, serialized_data.length());
+          ros::MessageDeserializerPtr deserializer(new ros::MessageDeserializer(iter->second.helper, serialized_msg, boost::shared_ptr<ros::M_string>()));
+
+          ros::VoidConstPtr msg = deserializer->deserialize();
+          if(msg)
+          {
+            ros::SubscriptionCallbackHelperCallParams params;
+            params.event = ros::MessageEvent<void const>(msg, deserializer->getConnectionHeader(), ros::Time(0), true, ros::MessageEvent<void const>::CreateFunction());
+            iter->second.helper->call(params);
+            m_smt.signalProcessed(iter->first);
+          }
+        }
+      }
+#endif
+
     }
   }
 }

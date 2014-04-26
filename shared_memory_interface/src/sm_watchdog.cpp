@@ -2,7 +2,7 @@
 
 void destroySharedMemory(int param)
 {
-  shared_memory_interface::SharedMemoryInterface::destroyMemory("smci");
+  shared_memory_interface::SharedMemoryInterface::destroyMemory("smi");
   ros::shutdown();
 }
 

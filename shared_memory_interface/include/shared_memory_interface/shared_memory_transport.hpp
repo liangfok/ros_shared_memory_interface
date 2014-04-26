@@ -36,6 +36,8 @@ namespace shared_memory_interface
 
     bool addSVField(std::string field_name, unsigned long length);
 
+    bool addSerializedField(std::string field_name, std::string md5sum, std::string datatype);
+
     bool getFPData(std::string field_name, unsigned long joint_idx, double& data);
 
     bool setFPData(std::string field_name, unsigned long joint_idx, double value);
@@ -47,6 +49,10 @@ namespace shared_memory_interface
     bool getSVField(std::string field_name, std::vector<std::string>& names_local);
 
     bool setSVField(std::string field_name, std::vector<std::string>& names_local);
+
+    bool getSerializedField(std::string field_name, std::string& data, std::string& md5sum, std::string& datatype);
+
+    bool setSerializedField(std::string field_name, std::string data, std::string md5sum, std::string datatype);
 
     bool setTxSequenceNumber(unsigned char value);
 
