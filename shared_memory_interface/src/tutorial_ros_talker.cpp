@@ -1,3 +1,10 @@
+/*
+ * File: tutorial_ros_talker.cpp
+ * Package: shared_memory_interface
+ * Author: Joshua James
+ * License: CC BY-SA 3.0 (attribution required)
+ */
+
 #include "ros/ros.h"
 #include "shared_memory_interface/shared_memory_interface_ros.hpp"
 #include "std_msgs/String.h"

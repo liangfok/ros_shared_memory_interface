@@ -1,3 +1,10 @@
+/*
+ * File: shared_memory_interface_ros.hpp
+ * Package: shared_memory_interface
+ * Author: Joshua James
+ * License: CC BY-SA 3.0 (attribution required)
+ */
+
 #ifndef SHARED_MEMORY_INTERFACE_ROS_HPP
 #define SHARED_MEMORY_INTERFACE_ROS_HPP
 

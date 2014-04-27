@@ -1,3 +1,10 @@
+/*
+ * File: sm_watchdog.hpp
+ * Package: shared_memory_interface
+ * Author: Joshua James
+ * License: CC BY-SA 3.0 (attribution required)
+ */
+
 #ifndef SM_WATCHDOG_H
 #define SM_WATCHDOG_H
 #include <ros/ros.h>

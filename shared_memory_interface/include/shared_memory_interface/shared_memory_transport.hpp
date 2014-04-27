@@ -1,3 +1,10 @@
+/*
+ * File: shared_memory_transport.hpp
+ * Package: shared_memory_interface
+ * Author: Joshua James
+ * License: CC BY-SA 3.0 (attribution required)
+ */
+
 #ifndef SHARED_MEMORY_TRANSPORT_HPP
 #define SHARED_MEMORY_TRANSPORT_HPP
 

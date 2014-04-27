@@ -4,7 +4,7 @@
      shared_memory_interface
 
   </description>
-  <author>jjames</author>
+  <author>Joshua James</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/shared_memory_interface</url>

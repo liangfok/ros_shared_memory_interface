@@ -1,3 +1,10 @@
+/*
+ * File: sm_watchdog.cpp
+ * Package: shared_memory_interface
+ * Author: Joshua James
+ * License: CC BY-SA 3.0 (attribution required)
+ */
+
 #include "shared_memory_interface/sm_watchdog.hpp"
 
 void destroySharedMemory(int param)

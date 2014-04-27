@@ -38,3 +38,11 @@ bin/tutorial_sensor, bin/tutorial_controller, and bin/tutorial_actuator each in 
 The ROS interface tutorial is comprised of two files: tutorial_ros_talker.cpp, and tutorial_ros_listener.cpp. It is intended to mirror
 the familiar publisher / subscriber tutorial on the ROS wiki. To run it, execute `rosrun shared_memory_interface tutorial_ros_talker`
 and `rosrun shared_memory_interface tutorial_ros_listener`, each in its own terminal.
+
+
+KNOWN ISSUES:
+If the destructor of the last SharedMemoryInterface object attached to the shared memory space is not called, the space will not be
+deleted. This is known to happen when the interface is used inside a gazebo plugin. If the space is not properly cleaned up after all 
+processes have disconnected, there may be issues with recreating the space when the code is run subsequently. The sm_watchdog node was 
+created to circumvent this issue. It guarantees that the shared memory space will be destroyed when ROS is shutdown. (TLDR: if you are 
+running this code inside a gazebo plugin, stick the watchdog in your launch file)

@@ -1,3 +1,10 @@
+/*
+ * File: shared_memory_transport.cpp
+ * Package: shared_memory_interface
+ * Author: Joshua James
+ * License: CC BY-SA 3.0 (attribution required)
+ */
+
 #include "shared_memory_interface/shared_memory_transport.hpp"
 
 namespace shared_memory_interface

@@ -1,3 +1,10 @@
+/*
+ * File: tutorial_actuator.cpp
+ * Package: shared_memory_interface
+ * Author: Joshua James
+ * License: CC BY-SA 3.0 (attribution required)
+ */
+
 #include "shared_memory_interface/shared_memory_interface.hpp"
 using namespace shared_memory_interface;
 
