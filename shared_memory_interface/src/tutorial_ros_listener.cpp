@@ -1,5 +1,5 @@
 #include "ros/ros.h"
-#include "shared_memory_interface/shared_memory_interface.hpp"
+#include "shared_memory_interface/shared_memory_interface_ros.hpp"
 #include "std_msgs/String.h"
 
 using namespace shared_memory_interface;
@@ -14,7 +14,7 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "listener");
   ros::NodeHandle n;
 
-  SharedMemoryInterface smi("smi");
+  SharedMemoryInterfaceROS smi("smi");
   smi.subscribeSerializedROS<std_msgs::String>("chatter", boost::bind(&chatterCallback, _1));
 
   ros::spin();

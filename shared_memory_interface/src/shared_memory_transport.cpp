@@ -91,7 +91,7 @@ namespace shared_memory_interface
       }
     }
     //if we have reached this point, we are the last one attached to the memory, so delete everything
-    std::cerr << "Deleting shared memory cleanly.\n";
+    std::cerr << "Closing down shared memory cleanly.\n";
     boost::interprocess::shared_memory_object::remove(m_data_name.c_str());
     boost::interprocess::named_mutex::remove(m_mutex_name.c_str());
   }
@@ -601,8 +601,7 @@ namespace shared_memory_interface
     }
 
     //TODO: destroy these conditions!
-    boost::interprocess::named_condition* cond = new boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str());
-    cond->wait(lock);
+    boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str()).wait(lock);
     PRINT_TRACE_EXIT
   }
 
@@ -618,8 +617,7 @@ namespace shared_memory_interface
       return false;
     }
 
-    boost::interprocess::named_condition* cond = new boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str());
-    cond->notify_all();
+    boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str()).notify_all();
 
     *flag = true;
     PRINT_TRACE_EXIT
