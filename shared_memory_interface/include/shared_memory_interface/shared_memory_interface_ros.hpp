@@ -69,8 +69,14 @@ namespace shared_memory_interface
     template<typename T> //T must be the type of a ros message
     void callbackThreadFunctionSerialized(std::string field_name, boost::function<void(T&)> callback)
     {
+      while(!m_smt.checkSerializedField(field_name) && ros::ok()) //wait for the field to be advertised
+      {
+        //TODO: add a warning?
+        usleep(10000);
+      }
+
       typedef typename ros::ParameterAdapter<T>::Message MessageType;
-      while(!m_shutdown)
+      while(!m_shutdown && ros::ok())
       {
         m_smt.awaitNewData(field_name);
 

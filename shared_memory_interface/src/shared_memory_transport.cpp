@@ -114,12 +114,20 @@ namespace shared_memory_interface
     try
     {
       boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-      if(segment.find<SMDoubleVector>(field_name.c_str()).first)
+      SMDoubleVector* vector = segment.find<SMDoubleVector>(field_name.c_str()).first;
+      if(vector) //field already created
       {
-        //TODO:make sure it's the dimensions we think it should be
-        std::cerr << "Found existing field " << field_name << std::endl;
-        PRINT_TRACE_EXIT
-        return true; //field already exists, so we're done
+        if(vector->size() == (rows * cols))
+        {
+          PRINT_TRACE_EXIT
+          return true; //field already exists, so we're done
+        }
+
+        //field isn't the right size, need to recreate everything
+        std::cerr << "WARNING: replacing existing field!";
+        segment.destroy<SMDoubleVector>(field_name.c_str());
+        segment.destroy<bool>((field_name + "_new_data_flag").c_str());
+        segment.destroy<unsigned long>((field_name + "_row_stride").c_str());
       }
     }
     catch(boost::interprocess::interprocess_exception &ex)
@@ -164,12 +172,19 @@ namespace shared_memory_interface
     try
     {
       boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-      if(segment.find<SMStringVector>(field_name.c_str()).first)
+      SMStringVector* vector = segment.find<SMStringVector>(field_name.c_str()).first;
+      if(vector) //field already created
       {
-        //TODO:make sure it's the dimensions we think it should be
-        std::cerr << "Found existing field " << field_name << std::endl;
-        PRINT_TRACE_EXIT
-        return true; //field already exists, so we're done
+        if(vector->size() == length)
+        {
+          PRINT_TRACE_EXIT
+          return true; //field already exists, so we're done
+        }
+
+        //field isn't the right size, need to recreate everything
+        std::cerr << "WARNING: replacing existing field!";
+        segment.destroy<SMStringVector>(field_name.c_str());
+        segment.destroy<bool>((field_name + "_new_data_flag").c_str());
       }
     }
     catch(boost::interprocess::interprocess_exception &ex)
@@ -220,9 +235,9 @@ namespace shared_memory_interface
     try
     {
       boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-      if(segment.find<SMString>(field_name.c_str()).first)
+      SMString* string = segment.find<SMString>(field_name.c_str()).first;
+      if(string) //field already created
       {
-        std::cerr << "Found existing field " << field_name << std::endl;
         PRINT_TRACE_EXIT
         return true; //field already exists, so we're done
       }
@@ -348,6 +363,20 @@ namespace shared_memory_interface
     return true;
   }
 
+  bool SharedMemoryTransport::checkFPField(std::string field_name)
+  {
+    PRINT_TRACE_ENTER
+    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
+    boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
+    if(segment.find<SMDoubleVector>(field_name.c_str()).first == 0) //field doesn't exist
+    {
+      PRINT_TRACE_EXIT
+      return false;
+    }
+    return true;
+    PRINT_TRACE_EXIT
+  }
+
   bool SharedMemoryTransport::getSVField(std::string field_name, std::vector<std::string>& strings_local)
   {
     PRINT_TRACE_ENTER
@@ -431,6 +460,20 @@ namespace shared_memory_interface
     return true;
   }
 
+  bool SharedMemoryTransport::checkSVField(std::string field_name)
+  {
+    PRINT_TRACE_ENTER
+    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
+    boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
+    if(segment.find<SMStringVector>(field_name.c_str()).first == 0) //field doesn't exist
+    {
+      PRINT_TRACE_EXIT
+      return false;
+    }
+    return true;
+    PRINT_TRACE_EXIT
+  }
+
   bool SharedMemoryTransport::getSerializedField(std::string field_name, std::string& data, std::string& md5sum, std::string& datatype)
   {
     PRINT_TRACE_ENTER
@@ -495,6 +538,20 @@ namespace shared_memory_interface
 
     PRINT_TRACE_EXIT
     return true;
+  }
+
+  bool SharedMemoryTransport::checkSerializedField(std::string field_name)
+  {
+    PRINT_TRACE_ENTER
+    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
+    boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
+    if(segment.find<SMString>(field_name.c_str()).first == 0) //field doesn't exist
+    {
+      PRINT_TRACE_EXIT
+      return false;
+    }
+    return true;
+    PRINT_TRACE_EXIT
   }
 
   bool SharedMemoryTransport::setTxSequenceNumber(unsigned char value)
@@ -587,7 +644,7 @@ namespace shared_memory_interface
     return (flag == 0)? false : *flag; //always false if the field doesn't exist
   }
 
-  void SharedMemoryTransport::awaitNewData(std::string field_name)
+  void SharedMemoryTransport::awaitNewData(std::string field_name, double timeout)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -600,8 +657,15 @@ namespace shared_memory_interface
       return;
     }
 
-    //TODO: destroy these conditions!
-    boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str()).wait(lock);
+    if(timeout < 0)
+    {
+      boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str()).wait(lock);
+    }
+    else
+    {
+      boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(timeout);
+      boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str()).timed_wait(lock, timeout_time);
+    }
     PRINT_TRACE_EXIT
   }
 

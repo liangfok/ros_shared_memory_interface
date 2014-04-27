@@ -43,17 +43,24 @@ namespace shared_memory_interface
 
     bool setFPData(std::string field_name, unsigned long joint_idx, double value);
 
+    //TODO: return row stride as well?
     bool getFPField(std::string field_name, std::vector<double>& field_data_local);
 
     bool setFPField(std::string field_name, std::vector<double>& field_data_local);
+
+    bool checkFPField(std::string field_name); //returns true if the field has already been configured
 
     bool getSVField(std::string field_name, std::vector<std::string>& names_local);
 
     bool setSVField(std::string field_name, std::vector<std::string>& names_local);
 
+    bool checkSVField(std::string field_name); //returns true if the field has already been configured
+
     bool getSerializedField(std::string field_name, std::string& data, std::string& md5sum, std::string& datatype);
 
     bool setSerializedField(std::string field_name, std::string data, std::string md5sum, std::string datatype);
+
+    bool checkSerializedField(std::string field_name); //returns true if the field has already been configured
 
     bool setTxSequenceNumber(unsigned char value);
 
@@ -67,7 +74,7 @@ namespace shared_memory_interface
 
     bool hasNewData(std::string field_name);
 
-    void awaitNewData(std::string field_name);
+    void awaitNewData(std::string field_name, double timeout = -1);
 
     bool signalAvailable(std::string field_name);
 

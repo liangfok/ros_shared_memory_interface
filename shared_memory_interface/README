@@ -1,0 +1,40 @@
+Package: shared_memory_interface
+Author: Joshua James
+
+This package contains a shared-memory-based transport library that exposes a publisher/subscriber interface similar to the one used by ROS.
+
+
+There are two interfaces in the package: 
+
+1) The primary SharedMemoryInterface class is not dependent on any part of ROS and can be used with unrelated C++ programs. This makes it very 
+easy to interface pre-existing non-ROS libraries to ROS. The data types available for shared memory transfer are limited to vectors and matrices
+of type double, or vectors of type string. This limitation is primarily for performance reasons: If the types are known beforehand, the code can 
+be optimized for them.
+
+2) The extended SharedMemoryInterfaceROS class allows more flexibility by allowing any ROS message type to be transferred by shared memory.
+This flexibility comes at the cost of requiring serialization, which can be time consuming for larger messages.
+
+
+The terminology used in both interfaces is similar to that used by ROS:
+
+"advertise" functions prepare the shared memory space for use. They should be called prior to calling any publish function.
+
+"publish" 	functions write to the shared memory space and notify waiting subscribers.
+
+"subscribe" functions spawn a thread that waits for new messages and calls the provided callback. Note that unlike their ROS counterparts,
+						these functions exhibit true concurrency, so additional mutexing may be required in the user's code. 
+
+"waitFor" 	functions are basically one-off versions of subscribers. The functions block until another process publishes data to a field, 
+						then return it. This is particularly useful for transferring static data like joint names. 
+
+
+TUTORIALS:
+I have provided two short tutorials demonstrating the use of the library: one using the basic interface and one using the ROS interface.
+
+The basic interface tutorial is comprised of three files: tutorial_sensor.cpp, tutorial_controller.cpp, and tutorial_actuator.cpp. It is
+intended to demonstrate a common control data flow (sensor driver->controller->actuator driver). To run it, just execute
+bin/tutorial_sensor, bin/tutorial_controller, and bin/tutorial_actuator each in its own terminal.
+
+The ROS interface tutorial is comprised of two files: tutorial_ros_talker.cpp, and tutorial_ros_listener.cpp. It is intended to mirror
+the familiar publisher / subscriber tutorial on the ROS wiki. To run it, execute `rosrun shared_memory_interface tutorial_ros_talker`
+and `rosrun shared_memory_interface tutorial_ros_listener`, each in its own terminal.
