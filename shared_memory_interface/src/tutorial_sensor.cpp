@@ -52,10 +52,10 @@ int main(int argc, char **argv)
 
   //construct interface
   SharedMemoryInterface smi("smi");
-  smi.advertiseFPVector("position", 10);
-  smi.advertiseFPVector("velocity", 10);
-  smi.advertiseFPVector("acceleration", 10);
-  smi.advertiseFPMatrix("checkerboard", 10, 10);
+  smi.advertiseFloatingPointVector("position", 10);
+  smi.advertiseFloatingPointVector("velocity", 10);
+  smi.advertiseFloatingPointVector("acceleration", 10);
+  smi.advertiseFloatingPointMatrix("checkerboard", 10, 10);
   smi.advertiseStringVector("joint_names", 10);
 
   //publish sensor data!
@@ -77,10 +77,10 @@ int main(int argc, char **argv)
       }
     }
 
-    smi.publishFPVector("position", position);
-    smi.publishFPVector("velocity", velocity);
-    smi.publishFPVector("acceleration", acceleration);
-    smi.publishFPMatrix("checkerboard", checkerboard);
+    smi.publishFloatingPointVector("position", position);
+    smi.publishFloatingPointVector("velocity", velocity);
+    smi.publishFloatingPointVector("acceleration", acceleration);
+    smi.publishFloatingPointMatrix("checkerboard", checkerboard);
     smi.publishStringVector("joint_names", joint_names);
 
     std::cerr << "Sent sensor measurement " << counter << std::endl;

@@ -1,8 +1,32 @@
 /*
- * File: shared_memory_interface.cpp
- * Package: shared_memory_interface
- * Author: Joshua James
- * License: CC BY-SA 3.0 (attribution required)
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2014, Joshua James
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "shared_memory_interface/shared_memory_interface.hpp"
@@ -28,22 +52,22 @@ namespace shared_memory_interface
 
   bool SharedMemoryInterface::advertiseStringVector(std::string field_name, unsigned long length)
   {
-    return m_smt.addSVField(field_name, length);
+    return m_smt.addStringVectorField(field_name, length);
   }
 
-  bool SharedMemoryInterface::advertiseFPVector(std::string field_name, unsigned long length)
+  bool SharedMemoryInterface::advertiseFloatingPointVector(std::string field_name, unsigned long length)
   {
-    return m_smt.addFPMatrixField(field_name, 1, length);
+    return m_smt.addFloatingPointMatrixField(field_name, 1, length);
   }
 
-  bool SharedMemoryInterface::advertiseFPMatrix(std::string field_name, unsigned long rows, unsigned long cols)
+  bool SharedMemoryInterface::advertiseFloatingPointMatrix(std::string field_name, unsigned long rows, unsigned long cols)
   {
-    return m_smt.addFPMatrixField(field_name, rows, cols);
+    return m_smt.addFloatingPointMatrixField(field_name, rows, cols);
   }
 
   bool SharedMemoryInterface::publishStringVector(std::string field_name, std::vector<std::string>& data)
   {
-    if(m_smt.setSVField(field_name, data))
+    if(m_smt.setStringVectorField(field_name, data))
     {
       if(m_smt.signalAvailable(field_name))
       {
@@ -53,9 +77,9 @@ namespace shared_memory_interface
     return false;
   }
 
-  bool SharedMemoryInterface::publishFPVector(std::string field_name, std::vector<double>& data)
+  bool SharedMemoryInterface::publishFloatingPointVector(std::string field_name, std::vector<double>& data)
   {
-    if(m_smt.setFPField(field_name, data))
+    if(m_smt.setFloatingPointField(field_name, data))
     {
       if(m_smt.signalAvailable(field_name))
       {
@@ -65,9 +89,9 @@ namespace shared_memory_interface
     return false;
   }
 
-  bool SharedMemoryInterface::publishFPMatrix(std::string field_name, std::vector<double>& data)
+  bool SharedMemoryInterface::publishFloatingPointMatrix(std::string field_name, std::vector<double>& data)
   {
-    if(m_smt.setFPField(field_name, data))
+    if(m_smt.setFloatingPointField(field_name, data))
     {
       if(m_smt.signalAvailable(field_name))
       {
@@ -79,59 +103,71 @@ namespace shared_memory_interface
 
   bool SharedMemoryInterface::subscribeStringVector(std::string field_name, boost::function<void(std::vector<std::string>&)> callback)
   {
-    if(!m_smt.checkSVField(field_name)) //if this field hasn't been advertised yet, go ahead and make it
-    {
-      advertiseStringVector(field_name, 1); //the field needs to be created for the await method to work
-    }
-    m_callback_threads.push_back(new boost::thread(boost::bind(&SharedMemoryInterface::callbackThreadFunctionSV, this, field_name, callback)));
+//    if(!m_smt.checkStringVectorField(field_name)) //if this field hasn't been advertised yet, go ahead and make it
+//    {
+//      advertiseStringVector(field_name, 1); //the field needs to be created for the await method to work
+//    }
+    m_callback_threads.push_back(new boost::thread(boost::bind(&SharedMemoryInterface::callbackThreadFunctionStringVector, this, field_name, callback)));
     return true;
   }
 
-  bool SharedMemoryInterface::subscribeFPVector(std::string field_name, boost::function<void(std::vector<double>&)> callback)
+  bool SharedMemoryInterface::subscribeFloatingPointVector(std::string field_name, boost::function<void(std::vector<double>&)> callback)
   {
-    if(!m_smt.checkSVField(field_name)) //if this field hasn't been advertised yet, go ahead and make it
-    {
-      advertiseFPVector(field_name, 1); //the field needs to be created for the await method to work
-    }
-    m_callback_threads.push_back(new boost::thread(boost::bind(&SharedMemoryInterface::callbackThreadFunctionFP, this, field_name, callback)));
+//    if(!m_smt.checkStringVectorField(field_name)) //if this field hasn't been advertised yet, go ahead and make it
+//    {
+//      advertiseFloatingPointVector(field_name, 1); //the field needs to be created for the await method to work
+//    }
+    m_callback_threads.push_back(new boost::thread(boost::bind(&SharedMemoryInterface::callbackThreadFunctionFloatingPoint, this, field_name, callback)));
     return true;
   }
 
-  bool SharedMemoryInterface::subscribeFPMatrix(std::string field_name, boost::function<void(std::vector<double>&)> callback)
+  bool SharedMemoryInterface::subscribeFloatingPointMatrix(std::string field_name, boost::function<void(std::vector<double>&)> callback)
   {
-    if(!m_smt.checkSVField(field_name)) //if this field hasn't been advertised yet, go ahead and make it
-    {
-      advertiseFPMatrix(field_name, 1, 1); //the field needs to be created for the await method to work
-    }
-    m_callback_threads.push_back(new boost::thread(boost::bind(&SharedMemoryInterface::callbackThreadFunctionFP, this, field_name, callback)));
+//    if(!m_smt.checkStringVectorField(field_name)) //if this field hasn't been advertised yet, go ahead and make it
+//    {
+//      advertiseFloatingPointMatrix(field_name, 1, 1); //the field needs to be created for the await method to work
+//    }
+    m_callback_threads.push_back(new boost::thread(boost::bind(&SharedMemoryInterface::callbackThreadFunctionFloatingPoint, this, field_name, callback)));
     return true;
   }
 
   bool SharedMemoryInterface::waitForStringVector(std::string field_name, std::vector<std::string>& data, double timeout)
   {
-    m_smt.awaitNewData(field_name, timeout);
-    m_smt.getSVField(field_name, data);
+    if(!m_smt.awaitNewData(field_name, timeout))
+    {
+      return false;
+    }
+    m_smt.getStringVectorField(field_name, data);
     m_smt.signalProcessed(field_name);
+    return true;
   }
 
-  bool SharedMemoryInterface::waitForFPVector(std::string field_name, std::vector<double>& data, double timeout)
+  bool SharedMemoryInterface::waitForFloatingPointVector(std::string field_name, std::vector<double>& data, double timeout)
   {
-    m_smt.awaitNewData(field_name, timeout);
-    m_smt.getFPField(field_name, data);
+    if(!m_smt.awaitNewData(field_name, timeout))
+    {
+      return false;
+    }
+    m_smt.getFloatingPointField(field_name, data);
     m_smt.signalProcessed(field_name);
+    return true;
   }
 
-  bool SharedMemoryInterface::waitForFPMatrix(std::string field_name, std::vector<double>& data, double timeout)
+  bool SharedMemoryInterface::waitForFloatingPointMatrix(std::string field_name, std::vector<double>& data, double timeout)
   {
-    m_smt.awaitNewData(field_name, timeout);
-    m_smt.getFPField(field_name, data);
+    if(!m_smt.awaitNewData(field_name, timeout))
+    {
+      return false;
+    }
+    m_smt.getFloatingPointField(field_name, data);
     m_smt.signalProcessed(field_name);
+    return true;
   }
 
   //private callback threads
-  void SharedMemoryInterface::callbackThreadFunctionFP(std::string field_name, boost::function<void(std::vector<double>&)> callback)
+  void SharedMemoryInterface::callbackThreadFunctionFloatingPoint(std::string field_name, boost::function<void(std::vector<double>&)> callback)
   {
-    while(!m_smt.checkFPField(field_name)) //wait for the field to be advertised
+    while(!m_smt.checkFloatingPointField(field_name)) //wait for the field to be advertised
     {
       //TODO: add a warning?
       usleep(10000);
@@ -142,15 +178,15 @@ namespace shared_memory_interface
       m_smt.awaitNewData(field_name);
 
       std::vector<double> data;
-      m_smt.getFPField(field_name, data);
+      m_smt.getFloatingPointField(field_name, data);
       callback(data);
       m_smt.signalProcessed(field_name);
     }
   }
 
-  void SharedMemoryInterface::callbackThreadFunctionSV(std::string field_name, boost::function<void(std::vector<std::string>&)> callback)
+  void SharedMemoryInterface::callbackThreadFunctionStringVector(std::string field_name, boost::function<void(std::vector<std::string>&)> callback)
   {
-    while(!m_smt.checkSVField(field_name)) //wait for the field to be advertised
+    while(!m_smt.checkStringVectorField(field_name)) //wait for the field to be advertised
     {
       //TODO: add a warning?
       usleep(10000);
@@ -161,7 +197,7 @@ namespace shared_memory_interface
       m_smt.awaitNewData(field_name);
 
       std::vector<std::string> data;
-      m_smt.getSVField(field_name, data);
+      m_smt.getStringVectorField(field_name, data);
       callback(data);
       m_smt.signalProcessed(field_name);
     }

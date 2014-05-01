@@ -55,24 +55,24 @@ namespace shared_memory_interface
 
     //advertise the existance of a field in shared memory
     bool advertiseStringVector(std::string field_name, unsigned long length);
-    bool advertiseFPVector(std::string field_name, unsigned long length);
-    bool advertiseFPMatrix(std::string field_name, unsigned long rows, unsigned long cols);
+    bool advertiseFloatingPointVector(std::string field_name, unsigned long length);
+    bool advertiseFloatingPointMatrix(std::string field_name, unsigned long rows, unsigned long cols);
 
     //publish data to the field and notify other processes
     bool publishStringVector(std::string field, std::vector<std::string>& data);
-    bool publishFPVector(std::string field, std::vector<double>& data);
-    bool publishFPMatrix(std::string field, std::vector<double>& data); //TODO: add implementation that takes an actual matrix type
+    bool publishFloatingPointVector(std::string field, std::vector<double>& data);
+    bool publishFloatingPointMatrix(std::string field, std::vector<double>& data); //TODO: add implementation that takes an actual matrix type
 
     //set up a "subscriber" that calls a callback function whenever data is published by another process
     bool subscribeStringVector(std::string field, boost::function<void(std::vector<std::string>&)> callback);
-    bool subscribeFPVector(std::string field, boost::function<void(std::vector<double>&)> callback);
-    bool subscribeFPMatrix(std::string field, boost::function<void(std::vector<double>&)> callback);
+    bool subscribeFloatingPointVector(std::string field, boost::function<void(std::vector<double>&)> callback);
+    bool subscribeFloatingPointMatrix(std::string field, boost::function<void(std::vector<double>&)> callback);
 
     //these methods block until data is available or the timeout is exceeded, then return the data in the data field
     //useful for static data that only needs to be read once (no need to set up a subscriber)
     bool waitForStringVector(std::string field, std::vector<std::string>& data, double timeout = -1);
-    bool waitForFPVector(std::string field, std::vector<double>& data, double timeout = -1);
-    bool waitForFPMatrix(std::string field, std::vector<double>& data, double timeout = -1);
+    bool waitForFloatingPointVector(std::string field, std::vector<double>& data, double timeout = -1);
+    bool waitForFloatingPointMatrix(std::string field, std::vector<double>& data, double timeout = -1);
 
   protected:
     SharedMemoryTransport m_smt;
@@ -81,8 +81,8 @@ namespace shared_memory_interface
     std::vector<boost::thread*> m_callback_threads;
     bool m_shutdown;
 
-    void callbackThreadFunctionFP(std::string field_name, boost::function<void(std::vector<double>&)> callback);
-    void callbackThreadFunctionSV(std::string field_name, boost::function<void(std::vector<std::string>&)> callback);
+    void callbackThreadFunctionFloatingPoint(std::string field_name, boost::function<void(std::vector<double>&)> callback);
+    void callbackThreadFunctionStringVector(std::string field_name, boost::function<void(std::vector<std::string>&)> callback);
   };
 
 }

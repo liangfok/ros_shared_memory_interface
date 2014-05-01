@@ -130,12 +130,12 @@ int main(int argc, char **argv)
   printVector("names", m_names);
   //  smi.subscribeStringVector("joint_names", boost::bind(&namesCallback, _1));
 
-  smi.subscribeFPVector("position", boost::bind(&positionCallback, _1));
-  smi.subscribeFPVector("velocity", boost::bind(&velocityCallback, _1));
-  smi.subscribeFPVector("acceleration", boost::bind(&accelerationCallback, _1));
-  smi.subscribeFPVector("checkerboard", boost::bind(&checkerboardCallback, _1));
+  smi.subscribeFloatingPointVector("position", boost::bind(&positionCallback, _1));
+  smi.subscribeFloatingPointVector("velocity", boost::bind(&velocityCallback, _1));
+  smi.subscribeFloatingPointVector("acceleration", boost::bind(&accelerationCallback, _1));
+  smi.subscribeFloatingPointVector("checkerboard", boost::bind(&checkerboardCallback, _1));
 
-  smi.advertiseFPVector("command", 10);
+  smi.advertiseFloatingPointVector("command", 10);
 
   //process sensor data and send out commands
   while(true)
@@ -153,7 +153,7 @@ int main(int argc, char **argv)
       }
 
       std::cerr << "Sending command\n";
-      smi.publishFPVector("command", command);
+      smi.publishFloatingPointVector("command", command);
 
       new_position = false;
       new_velocity = false;

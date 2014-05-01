@@ -136,7 +136,7 @@ namespace shared_memory_interface
     boost::interprocess::named_mutex::remove(mutex_name.c_str());
   }
 
-  bool SharedMemoryTransport::addFPMatrixField(std::string field_name, unsigned long rows, unsigned long cols)
+  bool SharedMemoryTransport::addFloatingPointMatrixField(std::string field_name, unsigned long rows, unsigned long cols)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -194,7 +194,7 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::addSVField(std::string field_name, unsigned long length)
+  bool SharedMemoryTransport::addStringVectorField(std::string field_name, unsigned long length)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -313,7 +313,7 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::getFPData(std::string field, unsigned long joint_idx, double& data)
+  bool SharedMemoryTransport::getFloatingPointData(std::string field, unsigned long joint_idx, double& data)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -329,7 +329,7 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::setFPData(std::string field, unsigned long joint_idx, double value)
+  bool SharedMemoryTransport::setFloatingPointData(std::string field, unsigned long joint_idx, double value)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -345,7 +345,7 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::getFPField(std::string field, std::vector<double>& field_data_local)
+  bool SharedMemoryTransport::getFloatingPointField(std::string field, std::vector<double>& field_data_local)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -367,7 +367,7 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::setFPField(std::string field, std::vector<double>& field_data_local)
+  bool SharedMemoryTransport::setFloatingPointField(std::string field, std::vector<double>& field_data_local)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -394,7 +394,7 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::checkFPField(std::string field_name)
+  bool SharedMemoryTransport::checkFloatingPointField(std::string field_name)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -408,7 +408,7 @@ namespace shared_memory_interface
     PRINT_TRACE_EXIT
   }
 
-  bool SharedMemoryTransport::getSVField(std::string field_name, std::vector<std::string>& strings_local)
+  bool SharedMemoryTransport::getStringVectorField(std::string field_name, std::vector<std::string>& strings_local)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -430,7 +430,7 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::setSVField(std::string field_name, std::vector<std::string>& strings_local)
+  bool SharedMemoryTransport::setStringVectorField(std::string field_name, std::vector<std::string>& strings_local)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -491,7 +491,7 @@ namespace shared_memory_interface
     return true;
   }
 
-  bool SharedMemoryTransport::checkSVField(std::string field_name)
+  bool SharedMemoryTransport::checkStringVectorField(std::string field_name)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -675,7 +675,7 @@ namespace shared_memory_interface
     return (flag == 0)? false : *flag; //always false if the field doesn't exist
   }
 
-  void SharedMemoryTransport::awaitNewData(std::string field_name, double timeout)
+  bool SharedMemoryTransport::awaitNewData(std::string field_name, double timeout)
   {
     PRINT_TRACE_ENTER
     boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
@@ -685,7 +685,8 @@ namespace shared_memory_interface
 
     if((flag == 0)? false : *flag) //the data is already ready
     {
-      return;
+      PRINT_TRACE_EXIT
+      return true;
     }
 
     if(timeout < 0)
@@ -695,9 +696,14 @@ namespace shared_memory_interface
     else
     {
       boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(timeout);
-      boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str()).timed_wait(lock, timeout_time);
+      if(!boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str()).timed_wait(lock, timeout_time))
+      {
+        PRINT_TRACE_EXIT
+        return false;
+      }
     }
     PRINT_TRACE_EXIT
+    return true;
   }
 
   bool SharedMemoryTransport::signalAvailable(std::string field_name)

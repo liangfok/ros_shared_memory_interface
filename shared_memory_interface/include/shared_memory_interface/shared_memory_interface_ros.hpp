@@ -96,6 +96,19 @@ namespace shared_memory_interface
       return true;
     }
 
+    template<typename T> //T must be the type of a ros message
+    bool waitForSerializedROS(std::string field_name, T& msg, double timeout=-1)
+    {
+      m_smt.awaitNewData(field_name, timeout);
+      std::string serialized_data, md5sum, datatype;
+      m_smt.getSerializedField(field_name, serialized_data, md5sum, datatype);
+      m_smt.signalProcessed(field_name);
+
+      ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
+      ros::serialization::deserialize(istream, msg);
+      return true;
+    }
+
   protected:
     template<typename T> //T must be the type of a ros message
     void callbackThreadFunctionSerialized(std::string field_name, boost::function<void(T&)> callback)

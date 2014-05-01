@@ -61,31 +61,31 @@ namespace shared_memory_interface
 
     static void destroyMemory(std::string interface_name);
 
-    //FP=> floating point
-    //SV=> string vector
+    //FloatingPoint=> floating point
+    //StringVector=> string vector
 
-    bool addFPMatrixField(std::string field_name, unsigned long rows, unsigned long cols);
+    bool addFloatingPointMatrixField(std::string field_name, unsigned long rows, unsigned long cols);
 
-    bool addSVField(std::string field_name, unsigned long length);
+    bool addStringVectorField(std::string field_name, unsigned long length);
 
     bool addSerializedField(std::string field_name, std::string md5sum, std::string datatype);
 
-    bool getFPData(std::string field_name, unsigned long joint_idx, double& data);
+    bool getFloatingPointData(std::string field_name, unsigned long joint_idx, double& data);
 
-    bool setFPData(std::string field_name, unsigned long joint_idx, double value);
+    bool setFloatingPointData(std::string field_name, unsigned long joint_idx, double value);
 
     //TODO: return row stride as well?
-    bool getFPField(std::string field_name, std::vector<double>& field_data_local);
+    bool getFloatingPointField(std::string field_name, std::vector<double>& field_data_local);
 
-    bool setFPField(std::string field_name, std::vector<double>& field_data_local);
+    bool setFloatingPointField(std::string field_name, std::vector<double>& field_data_local);
 
-    bool checkFPField(std::string field_name); //returns true if the field has already been configured
+    bool checkFloatingPointField(std::string field_name); //returns true if the field has already been configured
 
-    bool getSVField(std::string field_name, std::vector<std::string>& names_local);
+    bool getStringVectorField(std::string field_name, std::vector<std::string>& names_local);
 
-    bool setSVField(std::string field_name, std::vector<std::string>& names_local);
+    bool setStringVectorField(std::string field_name, std::vector<std::string>& names_local);
 
-    bool checkSVField(std::string field_name); //returns true if the field has already been configured
+    bool checkStringVectorField(std::string field_name); //returns true if the field has already been configured
 
     bool getSerializedField(std::string field_name, std::string& data, std::string& md5sum, std::string& datatype);
 
@@ -105,7 +105,7 @@ namespace shared_memory_interface
 
     bool hasNewData(std::string field_name);
 
-    void awaitNewData(std::string field_name, double timeout = -1);
+    bool awaitNewData(std::string field_name, double timeout = -1);
 
     bool signalAvailable(std::string field_name);
 

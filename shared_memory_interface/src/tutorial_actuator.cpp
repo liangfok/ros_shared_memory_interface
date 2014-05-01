@@ -52,7 +52,7 @@ void commandCallback(std::vector<double>& msg)
 int main(int argc, char **argv)
 {
   SharedMemoryInterface smi("smi");
-  smi.subscribeFPVector("command", boost::bind(&commandCallback, _1));
+  smi.subscribeFloatingPointVector("command", boost::bind(&commandCallback, _1));
 
   while(true)
   {
