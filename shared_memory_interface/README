@@ -29,7 +29,7 @@ The terminology used in both interfaces is similar to that used by ROS:
 
 
 TUTORIALS:
-I have provided two short tutorials demonstrating the use of the library: one using the basic interface and one using the ROS interface.
+I have provided two short tutorials in shared_memory_interface_tutorials demonstrating the use of the library: one using the basic interface and one using the ROS interface.
 
 The basic interface tutorial is comprised of three files: tutorial_sensor.cpp, tutorial_controller.cpp, and tutorial_actuator.cpp. It is
 intended to demonstrate a common control data flow (sensor driver->controller->actuator driver). To run it, just execute

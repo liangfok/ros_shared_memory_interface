@@ -1,0 +1,16 @@
+<package>
+  <description brief="shared_memory_interface_tutorials">
+
+     shared_memory_interface_tutorials
+
+  </description>
+  <author>jjames</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/shared_memory_interface_tutorials</url>
+  <depend package="roscpp"/>
+  <depend package="shared_memory_interface"/>
+
+</package>
+
+
