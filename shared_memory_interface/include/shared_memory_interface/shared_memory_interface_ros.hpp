@@ -92,14 +92,36 @@ namespace shared_memory_interface
     bool subscribeSerializedROS(std::string field_name, boost::function<void(T&)> callback)
     {
       m_callback_threads.push_back(new boost::thread(boost::bind(&SharedMemoryInterfaceROS::callbackThreadFunctionSerialized<T>, this, field_name, callback)));
-
       return true;
     }
 
     template<typename T> //T must be the type of a ros message
-    bool waitForSerializedROS(std::string field_name, T& msg, double timeout=-1)
+    bool waitForSerializedROS(std::string field_name, T& msg, double timeout = -1)
     {
-      m_smt.awaitNewData(field_name, timeout);
+      if(!m_smt.awaitNewData(field_name, timeout))
+      {
+        return false;
+      }
+      std::string serialized_data, md5sum, datatype;
+      m_smt.getSerializedField(field_name, serialized_data, md5sum, datatype);
+      m_smt.signalProcessed(field_name);
+
+      ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
+      ros::serialization::deserialize(istream, msg);
+      return true;
+    }
+
+    template<typename T> //T must be the type of a ros message
+    bool getCurrentSerializedROS(std::string field_name, T& msg, double timeout = -1)
+    {
+      if(!m_smt.checkSerializedField(field_name)) //if the field doesn't exist yet, we can't retrieve the data
+      {
+        if(!m_smt.awaitNewData(field_name, timeout)) //wait for the field to be advertised
+        {
+          return false;
+        }
+      }
+
       std::string serialized_data, md5sum, datatype;
       m_smt.getSerializedField(field_name, serialized_data, md5sum, datatype);
       m_smt.signalProcessed(field_name);
@@ -115,8 +137,8 @@ namespace shared_memory_interface
     {
       while(!m_smt.checkSerializedField(field_name) && ros::ok()) //wait for the field to be advertised
       {
-        //TODO: add a warning?
-        usleep(10000);
+        std::cerr << "Waiting for " << field_name << " to be advertised." << std::cerr;
+        usleep(1000000);
       }
 
       typedef typename ros::ParameterAdapter<T>::Message MessageType;

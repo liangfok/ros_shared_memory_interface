@@ -74,6 +74,14 @@ namespace shared_memory_interface
     bool waitForFloatingPointVector(std::string field, std::vector<double>& data, double timeout = -1);
     bool waitForFloatingPointMatrix(std::string field, std::vector<double>& data, double timeout = -1);
 
+    //these methods immediately return the current value of a field if it exists,
+    //regardless of whether or not it has been updated recently. If the field doesn't exists, it blocks
+    //until the data is available or until the timeout occurs.
+    //useful for static data that only needs to be read once (no need to set up a subscriber)
+    bool getCurrentStringVector(std::string field, std::vector<std::string>& data, double timeout = -1);
+    bool getCurrentFloatingPointVector(std::string field, std::vector<double>& data, double timeout = -1);
+    bool getCurrentFloatingPointMatrix(std::string field, std::vector<double>& data, double timeout = -1);
+
   protected:
     SharedMemoryTransport m_smt;
     std::string m_interface_name;

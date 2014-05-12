@@ -103,30 +103,18 @@ namespace shared_memory_interface
 
   bool SharedMemoryInterface::subscribeStringVector(std::string field_name, boost::function<void(std::vector<std::string>&)> callback)
   {
-//    if(!m_smt.checkStringVectorField(field_name)) //if this field hasn't been advertised yet, go ahead and make it
-//    {
-//      advertiseStringVector(field_name, 1); //the field needs to be created for the await method to work
-//    }
     m_callback_threads.push_back(new boost::thread(boost::bind(&SharedMemoryInterface::callbackThreadFunctionStringVector, this, field_name, callback)));
     return true;
   }
 
   bool SharedMemoryInterface::subscribeFloatingPointVector(std::string field_name, boost::function<void(std::vector<double>&)> callback)
   {
-//    if(!m_smt.checkStringVectorField(field_name)) //if this field hasn't been advertised yet, go ahead and make it
-//    {
-//      advertiseFloatingPointVector(field_name, 1); //the field needs to be created for the await method to work
-//    }
     m_callback_threads.push_back(new boost::thread(boost::bind(&SharedMemoryInterface::callbackThreadFunctionFloatingPoint, this, field_name, callback)));
     return true;
   }
 
   bool SharedMemoryInterface::subscribeFloatingPointMatrix(std::string field_name, boost::function<void(std::vector<double>&)> callback)
   {
-//    if(!m_smt.checkStringVectorField(field_name)) //if this field hasn't been advertised yet, go ahead and make it
-//    {
-//      advertiseFloatingPointMatrix(field_name, 1, 1); //the field needs to be created for the await method to work
-//    }
     m_callback_threads.push_back(new boost::thread(boost::bind(&SharedMemoryInterface::callbackThreadFunctionFloatingPoint, this, field_name, callback)));
     return true;
   }
@@ -164,13 +152,52 @@ namespace shared_memory_interface
     return true;
   }
 
+  bool SharedMemoryInterface::getCurrentStringVector(std::string field_name, std::vector<std::string>& data, double timeout)
+  {
+    if(!m_smt.checkStringVectorField(field_name)) //if the field doesn't exist yet, we can't retrieve the data
+    {
+      if(!m_smt.awaitNewData(field_name, timeout)) //wait for the field to be advertised
+      {
+        return false;
+      }
+    }
+    m_smt.getStringVectorField(field_name, data);
+    return true;
+  }
+
+  bool SharedMemoryInterface::getCurrentFloatingPointVector(std::string field_name, std::vector<double>& data, double timeout)
+  {
+    if(!m_smt.checkFloatingPointField(field_name)) //if the field doesn't exist yet, we can't retrieve the data
+    {
+      if(!m_smt.awaitNewData(field_name, timeout)) //wait for the field to be advertised
+      {
+        return false;
+      }
+    }
+    m_smt.getFloatingPointField(field_name, data);
+    return true;
+  }
+
+  bool SharedMemoryInterface::getCurrentFloatingPointMatrix(std::string field_name, std::vector<double>& data, double timeout)
+  {
+    if(!m_smt.checkFloatingPointField(field_name)) //if the field doesn't exist yet, we can't retrieve the data
+    {
+      if(!m_smt.awaitNewData(field_name, timeout)) //wait for the field to be advertised
+      {
+        return false;
+      }
+    }
+    m_smt.getFloatingPointField(field_name, data);
+    return true;
+  }
+
   //private callback threads
   void SharedMemoryInterface::callbackThreadFunctionFloatingPoint(std::string field_name, boost::function<void(std::vector<double>&)> callback)
   {
     while(!m_smt.checkFloatingPointField(field_name)) //wait for the field to be advertised
     {
-      //TODO: add a warning?
-      usleep(10000);
+      std::cerr << "Waiting for " << field_name << " to be advertised" << std::cerr;
+      usleep(1000000);
     }
 
     while(!m_shutdown)
@@ -188,8 +215,8 @@ namespace shared_memory_interface
   {
     while(!m_smt.checkStringVectorField(field_name)) //wait for the field to be advertised
     {
-      //TODO: add a warning?
-      usleep(10000);
+      std::cerr << "Waiting for " << field_name << " to be advertised" << std::cerr;
+      usleep(1000000);
     }
 
     while(!m_shutdown)

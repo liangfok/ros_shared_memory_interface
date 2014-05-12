@@ -94,22 +94,19 @@ namespace shared_memory_interface
         {
           boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::create_only, m_data_name.c_str(), base_size);
 
-          //TODO: segregate rtt measurements
-          segment.construct<unsigned char>("rtt_seq_no_tx")(0);
-          segment.construct<unsigned char>("rtt_seq_no_rx")(0);
           unsigned long* connection_tokens = segment.construct<unsigned long>("connection_tokens")(0);
           *connection_tokens = *connection_tokens + 1;
         }
         boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str());
         std::cerr << "Created " << interface_name << " space." << std::endl;
       }
-
     }
     PRINT_TRACE_EXIT
   }
 
   SharedMemoryTransport::~SharedMemoryTransport()
   {
+    //TODO: figure out why tutorials aren't closing memory properly
     {
       boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
       boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
@@ -583,70 +580,6 @@ namespace shared_memory_interface
     }
     return true;
     PRINT_TRACE_EXIT
-  }
-
-  bool SharedMemoryTransport::setTxSequenceNumber(unsigned char value)
-  {
-    PRINT_TRACE_ENTER
-    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
-    boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-    unsigned char* rtt_seq_no_tx = segment.find<unsigned char>("rtt_seq_no_tx").first;
-    if(rtt_seq_no_tx == 0)
-    {
-      PRINT_TRACE_EXIT
-      return false;
-    }
-    *rtt_seq_no_tx = value;
-    PRINT_TRACE_EXIT
-    return true;
-  }
-
-  bool SharedMemoryTransport::getTxSequenceNumber(unsigned char& sequence_number)
-  {
-    PRINT_TRACE_ENTER
-    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
-    boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-    unsigned char* rtt_seq_no_tx = segment.find<unsigned char>("rtt_seq_no_tx").first;
-    if(rtt_seq_no_tx == 0)
-    {
-      PRINT_TRACE_EXIT
-      return false;
-    }
-    sequence_number = *rtt_seq_no_tx;
-    PRINT_TRACE_EXIT
-    return true;
-  }
-
-  bool SharedMemoryTransport::setRxSequenceNumber(unsigned char value)
-  {
-    PRINT_TRACE_ENTER
-    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
-    boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-    unsigned char* rtt_seq_no_rx = segment.find<unsigned char>("rtt_seq_no_rx").first;
-    if(rtt_seq_no_rx == 0)
-    {
-      PRINT_TRACE_EXIT
-      return false;
-    }
-    *rtt_seq_no_rx = value;
-    PRINT_TRACE_EXIT
-    return true;
-  }
-
-  bool SharedMemoryTransport::getRxSequenceNumber(unsigned char& sequence_number)
-  {
-    PRINT_TRACE_ENTER
-    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lock(*m_mutex);
-    boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-    unsigned char* rtt_seq_no_rx = segment.find<unsigned char>("rtt_seq_no_rx").first;
-    if(rtt_seq_no_rx == 0)
-    {
-      PRINT_TRACE_EXIT
-      return false;
-    }
-    sequence_number = *rtt_seq_no_rx;
-    PRINT_TRACE_EXIT
-    return true;
   }
 
   bool SharedMemoryTransport::hasConnections()

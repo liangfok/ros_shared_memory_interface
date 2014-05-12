@@ -17,15 +17,18 @@ This flexibility comes at the cost of requiring serialization, which can be time
 
 The terminology used in both interfaces is similar to that used by ROS:
 
-"advertise" functions prepare the shared memory space for use. They should be called prior to calling any publish function.
+"advertise"   functions prepare the shared memory space for use. They should be called prior to calling any publish function.
 
-"publish" 	functions write to the shared memory space and notify waiting subscribers.
+"publish" 	  functions write to the shared memory space and notify waiting subscribers.
 
-"subscribe" functions spawn a thread that waits for new messages and calls the provided callback. Note that unlike their ROS counterparts,
-						these functions exhibit true concurrency, so additional mutexing may be required in the user's code. 
+"subscribe"   functions spawn a thread that waits for new messages and calls the provided callback. Note that unlike their ROS counterparts,
+						  these functions exhibit true concurrency, so additional mutexing may be required in the user's code. 
 
-"waitFor" 	functions are basically one-off versions of subscribers. The functions block until another process publishes data to a field, 
-						then return it. This is particularly useful for transferring static data like joint names. 
+"waitFor" 	  functions are basically one-off versions of subscribers. The functions block until another process publishes data to a field, 
+						  then return it. This is particularly useful for transferring static data like joint names. 
+
+"getCurrent"  functions are similar to the waitFor functions. The major difference is that the function does not wait for another process to update 
+              the field. If the field exists, it returns the current contents immediately. 
 
 
 TUTORIALS:

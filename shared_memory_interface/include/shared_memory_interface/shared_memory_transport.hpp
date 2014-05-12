@@ -93,14 +93,6 @@ namespace shared_memory_interface
 
     bool checkSerializedField(std::string field_name); //returns true if the field has already been configured
 
-    bool setTxSequenceNumber(unsigned char value);
-
-    bool getTxSequenceNumber(unsigned char& sequence_number);
-
-    bool setRxSequenceNumber(unsigned char value);
-
-    bool getRxSequenceNumber(unsigned char& sequence_number);
-
     bool hasConnections();
 
     bool hasNewData(std::string field_name);
