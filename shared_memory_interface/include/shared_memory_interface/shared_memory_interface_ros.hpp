@@ -137,7 +137,7 @@ namespace shared_memory_interface
     {
       while(!m_smt.checkSerializedField(field_name) && ros::ok()) //wait for the field to be advertised
       {
-        std::cerr << "Waiting for " << field_name << " to be advertised." << std::cerr;
+        std::cerr << "Waiting for " << field_name << " to be advertised." << std::endl;
         usleep(1000000);
       }
 

@@ -14,8 +14,9 @@ rosbuild_init()
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-find_package(Boost REQUIRED COMPONENTS thread)
-include_directories(include ../common/include SYSTEM ${Boost_INCLUDE_DIRS})
+find_package(Boost REQUIRED COMPONENTS thread python)
+find_package(PythonLibs REQUIRED)
+include_directories(include ../common/include SYSTEM ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 
 #shared memory library
 add_library(shared_memory_interface src/shared_memory_transport.cpp src/shared_memory_interface.cpp)
@@ -24,3 +25,7 @@ target_link_libraries(shared_memory_interface ${Boost_LIBRARIES})
 #watchdog (shared memory cleanup tool)
 rosbuild_add_executable(sm_watchdog src/sm_watchdog.cpp)
 target_link_libraries(sm_watchdog shared_memory_interface)
+
+#echo
+#rosbuild_add_executable(echo src/echo.cpp)
+#target_link_libraries(echo shared_memory_interface ${PYTHON_LIBRARIES})

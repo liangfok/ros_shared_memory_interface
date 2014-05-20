@@ -196,7 +196,7 @@ namespace shared_memory_interface
   {
     while(!m_smt.checkFloatingPointField(field_name)) //wait for the field to be advertised
     {
-      std::cerr << "Waiting for " << field_name << " to be advertised" << std::cerr;
+      std::cerr << "Waiting for " << field_name << " to be advertised" << std::endl;
       usleep(1000000);
     }
 
@@ -215,7 +215,7 @@ namespace shared_memory_interface
   {
     while(!m_smt.checkStringVectorField(field_name)) //wait for the field to be advertised
     {
-      std::cerr << "Waiting for " << field_name << " to be advertised" << std::cerr;
+      std::cerr << "Waiting for " << field_name << " to be advertised" << std::endl;
       usleep(1000000);
     }
 

@@ -1,0 +1,8 @@
+<stack>
+  <description brief="shared_memory_interface ROS stack">`
+  </description>
+  <author>Maintained by Joshua James</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>https://bitbucket.org/Jraipxg/ros_shared_memory_interface</url>
+</stack>
