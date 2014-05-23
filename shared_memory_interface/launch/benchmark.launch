@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<launch>
+	<arg name="size" default="8182"/>
+	<arg name="rate" default="1000"/>
+
+  <!--<node pkg="shared_memory_interface" type="benchmark" name="benchmark_sm_opt" args="smoptimized $(arg size) $(arg rate)" ns="sm_optimized" output="screen"/>
+  <node pkg="shared_memory_interface" type="benchmark_mirror" name="echo_sm_opt" args="smoptimized $(arg size)" ns="sm_optimized" output="screen"/>
+
+  <node pkg="shared_memory_interface" type="benchmark" name="benchmark_sm_msg" args="smmsg $(arg size) $(arg rate)" ns="sm_msg" output="screen"/>
+  <node pkg="shared_memory_interface" type="benchmark_mirror" name="echo_sm_msg" args="smmsg $(arg size)" ns="sm_msg" output="screen"/>
+
+  <node pkg="shared_memory_interface" type="benchmark" name="benchmark_ros_msg" args="rosmsg $(arg size) $(arg rate)" ns="ros_msg" output="screen"/>
+  <node pkg="shared_memory_interface" type="benchmark_mirror" name="echo_ros_msg" args="rosmsg $(arg size)" ns="ros_msg" output="screen"/>
+  
+  <node pkg="rqt_plot" type="rqt_plot" name="rqt_plot" args="/sm_optimized/rtt/data /sm_msg/rtt/data /ros_msg/rtt/data" output="screen"/>-->
+  
+  
+
+  <node pkg="shared_memory_interface" type="benchmark" name="benchmark_ros_msg" args="rosmsg 10 100" ns="ros_msg1" output="screen"/>
+  <node pkg="shared_memory_interface" type="benchmark_mirror" name="echo_ros_msg" args="rosmsg 10" ns="ros_msg1" output="screen"/>
+  
+  <node pkg="shared_memory_interface" type="benchmark" name="benchmark_ros_msg" args="rosmsg 100 100" ns="ros_msg2" output="screen"/>
+  <node pkg="shared_memory_interface" type="benchmark_mirror" name="echo_ros_msg" args="rosmsg 100" ns="ros_msg2" output="screen"/>
+  
+  <node pkg="shared_memory_interface" type="benchmark" name="benchmark_ros_msg" args="rosmsg 1000 100" ns="ros_msg3" output="screen"/>
+  <node pkg="shared_memory_interface" type="benchmark_mirror" name="echo_ros_msg" args="rosmsg 1000" ns="ros_msg3" output="screen"/>
+  
+  <node pkg="shared_memory_interface" type="benchmark" name="benchmark_ros_msg" args="rosmsg 10000 100" ns="ros_msg4" output="screen"/>
+  <node pkg="shared_memory_interface" type="benchmark_mirror" name="echo_ros_msg" args="rosmsg 10000" ns="ros_msg4" output="screen"/>
+  
+  <node pkg="shared_memory_interface" type="benchmark" name="benchmark_ros_msg" args="rosmsg 100000 100" ns="ros_msg5" output="screen"/>
+  <node pkg="shared_memory_interface" type="benchmark_mirror" name="echo_ros_msg" args="rosmsg 100000" ns="ros_msg5" output="screen"/>
+  
+  <node pkg="shared_memory_interface" type="benchmark" name="benchmark_ros_msg" args="rosmsg 1000000 100" ns="ros_msg6" output="screen"/>
+  <node pkg="shared_memory_interface" type="benchmark_mirror" name="echo_ros_msg" args="rosmsg 1000000" ns="ros_msg6" output="screen"/>
+  
+  <node pkg="rqt_plot" type="rqt_plot" name="rqt_plot" args="/ros_msg1/rtt/data /ros_msg2/rtt/data /ros_msg3/rtt/data /ros_msg4/rtt/data /ros_msg5/rtt/data /ros_msg6/rtt/data" output="screen"/>
+  
+</launch>
