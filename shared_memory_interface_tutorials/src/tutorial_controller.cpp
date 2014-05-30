@@ -30,7 +30,15 @@
  */
 
 #include "shared_memory_interface/shared_memory_interface.hpp"
+#include <signal.h>
 using namespace shared_memory_interface;
+
+bool ok;
+void loopBreaker(int sig)
+{
+  ok = false;
+}
+
 #include <unistd.h>
 #include <boost/thread/mutex.hpp>
 boost::mutex m_mutex;
@@ -118,6 +126,7 @@ void namesCallback(std::vector<std::string>& msg)
 
 int main(int argc, char **argv)
 {
+  signal(SIGINT, loopBreaker);
   //construct interface
   SharedMemoryInterface smi("smi");
 
@@ -138,7 +147,8 @@ int main(int argc, char **argv)
   smi.advertiseFloatingPointVector("command", 10);
 
   //process sensor data and send out commands
-  while(true)
+  ok = true;
+  while(ok)
   {
     if(new_position && new_velocity && new_acceleration && new_checkerboard)
     {

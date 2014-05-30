@@ -39,8 +39,14 @@
 #include <boost/interprocess/mapped_region.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
 #include <boost/interprocess/sync/named_mutex.hpp>
-#include <boost/interprocess/sync/named_condition.hpp>
+#include <boost/interprocess/sync/named_upgradable_mutex.hpp>
+//#include <boost/interprocess/sync/named_condition.hpp>
 #include <boost/interprocess/sync/scoped_lock.hpp>
+#include <boost/interprocess/sync/sharable_lock.hpp>
+#include <boost/interprocess/sync/upgradable_lock.hpp>
+#include <boost/thread/locks.hpp>
+
+#include <shared_memory_interface/named_upgradable_condition.hpp>
 
 #include <boost/interprocess/containers/vector.hpp>
 #include <boost/interprocess/containers/string.hpp>
@@ -52,6 +58,7 @@
 
 namespace shared_memory_interface
 {
+  typedef boost::interprocess::interprocess_upgradable_mutex upgradable_mutex_type;
   class SharedMemoryTransport
   {
   public:
@@ -104,9 +111,11 @@ namespace shared_memory_interface
     bool signalProcessed(std::string field_name);
 
   private:
-    boost::interprocess::named_mutex* m_mutex;
+    bool getMutex(std::string mutex_name, boost::interprocess::interprocess_upgradable_mutex* mutex);
+
+    boost::interprocess::named_upgradable_mutex* m_mutex;
     std::string m_interface_name;
-    std::string m_mutex_name;
+    std::string m_memory_mutex_name;
     std::string m_data_name;
   };
 

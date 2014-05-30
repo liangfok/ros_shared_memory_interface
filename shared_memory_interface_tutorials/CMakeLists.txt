@@ -26,10 +26,18 @@ target_link_libraries(tutorial_ros_listener shared_memory_interface)
 
 #non-ROS tutorial
 add_executable(tutorial_sensor src/tutorial_sensor.cpp)
-target_link_libraries(tutorial_sensor shared_memory_interface -lrt)
+target_link_libraries(tutorial_sensor shared_memory_interface)
 
 add_executable(tutorial_controller src/tutorial_controller.cpp)
-target_link_libraries(tutorial_controller shared_memory_interface -lrt)
+target_link_libraries(tutorial_controller shared_memory_interface)
 
 add_executable(tutorial_actuator src/tutorial_actuator.cpp)
-target_link_libraries(tutorial_actuator shared_memory_interface -lrt)
+target_link_libraries(tutorial_actuator shared_memory_interface)
+
+
+#non-ROS tutorial 2
+rosbuild_add_executable(tutorial_poll_talker src/tutorial_poll_talker.cpp)
+target_link_libraries(tutorial_poll_talker shared_memory_interface)
+
+rosbuild_add_executable(tutorial_poll_listener src/tutorial_poll_listener.cpp)
+target_link_libraries(tutorial_poll_listener shared_memory_interface)

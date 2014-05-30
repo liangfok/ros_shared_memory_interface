@@ -30,7 +30,14 @@
  */
 
 #include "shared_memory_interface/shared_memory_interface.hpp"
+#include <signal.h>
 using namespace shared_memory_interface;
+
+bool ok;
+void loopBreaker(int sig)
+{
+  ok = false;
+}
 
 void commandCallback(std::vector<double>& msg)
 {
@@ -51,10 +58,12 @@ void commandCallback(std::vector<double>& msg)
 
 int main(int argc, char **argv)
 {
+  signal(SIGINT, loopBreaker);
   SharedMemoryInterface smi("smi");
   smi.subscribeFloatingPointVector("command", boost::bind(&commandCallback, _1));
 
-  while(true)
+  ok = true;
+  while(ok)
   {
     usleep(100000);//10hz
   }

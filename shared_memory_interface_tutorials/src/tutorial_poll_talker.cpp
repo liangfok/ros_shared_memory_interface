@@ -42,63 +42,20 @@ void loopBreaker(int sig)
 int main(int argc, char **argv)
 {
   signal(SIGINT, loopBreaker);
-  //initialize fake sensor data
-  std::vector<double> position, velocity, acceleration, checkerboard;
-  std::vector<std::string> joint_names;
-
-  for(unsigned int i = 0; i < 10; i++)
-  {
-    position.push_back(i + 1);
-    velocity.push_back((i + 1) * 10);
-    acceleration.push_back((i + 1) * 100);
-
-    std::stringstream ss;
-    ss << "joint_" << i;
-    joint_names.push_back(ss.str());
-  }
-  checkerboard.resize(10 * 10); //10x10 checkerboard "image"
 
   //construct interface
   SharedMemoryInterface smi("smi");
-  smi.advertiseFloatingPointVector("position", 10);
-  smi.advertiseFloatingPointVector("velocity", 10);
-  smi.advertiseFloatingPointVector("acceleration", 10);
-  smi.advertiseFloatingPointMatrix("checkerboard", 10, 10);
-  smi.advertiseStringVector("joint_names", 10);
+  smi.advertiseFloatingPointVector("chatter", 10);
+
+  std::vector<double> data;
+  data.resize(10);
 
   //publish sensor data!
-  double counter = 0.0;
   ok = true;
   while(ok)
   {
-    for(unsigned int row = 0; row < 10; row++)
-    {
-      for(unsigned int col = 0; col < 10; col++)
-      {
-        unsigned long idx = row * 10 + col;
-        bool black_square = (col % 2 == 0);
-        if(row % 2 == 0)
-        {
-          black_square = !black_square;
-        }
-        double val = black_square? 0.0 : counter;
-        checkerboard.at(idx) = val;
-      }
-    }
+    smi.publishFloatingPointVector("chatter", data);
 
-    smi.publishFloatingPointVector("position", position);
-    smi.publishFloatingPointVector("velocity", velocity);
-    smi.publishFloatingPointVector("acceleration", acceleration);
-    smi.publishFloatingPointMatrix("checkerboard", checkerboard);
-    smi.publishStringVector("joint_names", joint_names);
-
-    std::cerr << "Sent sensor measurement " << counter << std::endl;
-
-    counter += 1.0;
-    if(counter > 1000.0)
-    {
-      counter = 0.0;
-    }
     usleep(100000);//10hz
   }
 

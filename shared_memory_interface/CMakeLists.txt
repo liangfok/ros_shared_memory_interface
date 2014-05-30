@@ -22,7 +22,7 @@ include_directories(include ../common/include SYSTEM ${Boost_INCLUDE_DIRS} ${PYT
 
 #shared memory library
 add_library(shared_memory_interface src/shared_memory_transport.cpp src/shared_memory_interface.cpp)
-target_link_libraries(shared_memory_interface ${Boost_LIBRARIES})
+target_link_libraries(shared_memory_interface ${Boost_LIBRARIES} -lrt)
 
 #watchdog (shared memory cleanup tool)
 rosbuild_add_executable(sm_watchdog src/sm_watchdog.cpp)
