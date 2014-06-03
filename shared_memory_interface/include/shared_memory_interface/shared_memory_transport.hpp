@@ -46,6 +46,8 @@
 #include <boost/interprocess/sync/upgradable_lock.hpp>
 #include <boost/thread/locks.hpp>
 
+#include <boost/interprocess/detail/atomic.hpp>
+
 #include <shared_memory_interface/named_upgradable_condition.hpp>
 
 #include <boost/interprocess/containers/vector.hpp>
@@ -111,11 +113,9 @@ namespace shared_memory_interface
     bool signalProcessed(std::string field_name);
 
   private:
-    bool getMutex(std::string mutex_name, boost::interprocess::interprocess_upgradable_mutex* mutex);
-
-    boost::interprocess::named_upgradable_mutex* m_mutex;
+//    boost::interprocess::named_upgradable_mutex* m_mutex;
     std::string m_interface_name;
-    std::string m_memory_mutex_name;
+//    std::string m_memory_mutex_name;
     std::string m_data_name;
   };
 

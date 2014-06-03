@@ -45,82 +45,134 @@ namespace shared_memory_interface
   typedef boost::interprocess::allocator<SMString, boost::interprocess::managed_shared_memory::segment_manager> SMStringAllocator;
   typedef boost::interprocess::vector<SMString, SMStringAllocator> SMStringVector;
 
-  bool SharedMemoryTransport::getMutex(std::string mutex_name, boost::interprocess::interprocess_upgradable_mutex* mutex)
+  class SMScopedLock
   {
-    try
+#define BROKEN_LOCK_TIMEOUT 1.0
+  public:
+    SMScopedLock(std::string interface_name, std::string field_name)
     {
-      boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-      mutex = segment.find<boost::interprocess::interprocess_upgradable_mutex>(mutex_name.c_str()).first;
-      if(!mutex)
+      m_full_name = getFullName(m_interface_name, m_field_name);
+      m_interface_name = interface_name;
+      m_field_name = field_name;
+      try
       {
-        std::cerr << mutex_name << " not found!";
-        return false;
+        m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_only, m_full_name.c_str());
+      }
+      catch(...)
+      {
+        std::cerr << "Mutex " << m_full_name << " not found! Creating it!";
+        m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, m_full_name.c_str());
       }
     }
-    catch(boost::interprocess::interprocess_exception ee)
+
+    ~SMScopedLock()
     {
-      std::cerr << "Failed to get mutex " << mutex_name << "! " << ee.what();
-      return false;
+      delete m_mutex;
     }
 
-    return true;
-  }
+    boost::interprocess::named_upgradable_mutex* get()
+    {
+      return m_mutex;
+    }
+
+    static void destroy(std::string interface_name, std::string field_name)
+    {
+      boost::interprocess::named_upgradable_mutex::remove(getFullName(interface_name, field_name).c_str());
+    }
+
+    static void create(std::string interface_name, std::string field_name)
+    {
+      boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, getFullName(interface_name, field_name).c_str());
+    }
+
+  protected:
+    void repairBrokenLock()
+    {
+      std::cerr << "SharedMemoryTransport: Found broken lock " << m_full_name << "! Repairing!" << std::endl;
+      destroy(m_interface_name, m_field_name);
+      create(m_interface_name, m_field_name);
+      delete m_mutex;
+      m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_only, m_full_name.c_str());
+    }
+
+    static std::string getFullName(std::string interface_name, std::string field_name)
+    {
+      return (interface_name + field_name + "mutex");
+    }
+
+    boost::interprocess::named_upgradable_mutex* m_mutex;
+    std::string m_interface_name;
+    std::string m_field_name;
+    std::string m_full_name;
+  };
+
+  class SMScopedReaderLock: public SMScopedLock
+  {
+  public:
+    SMScopedReaderLock(std::string interface_name, std::string field_name, double timeout_duration=1.0) :
+        SMScopedLock(interface_name, field_name)
+    {
+      boost::posix_time::ptime timeout = boost::get_system_time() + boost::posix_time::milliseconds(timeout_duration * 1000);
+      if(!m_mutex->timed_lock_sharable(timeout))
+      {
+        repairBrokenLock();
+      }
+    }
+
+    ~SMScopedReaderLock()
+    {
+      m_mutex->unlock_sharable();
+    }
+  };
+
+  class SMScopedWriterLock: public SMScopedLock
+  {
+  public:
+    SMScopedWriterLock(std::string interface_name, std::string field_name, double timeout_duration=1.0) :
+        SMScopedLock(interface_name, field_name)
+    {
+      boost::posix_time::ptime timeout = boost::get_system_time() + boost::posix_time::milliseconds(timeout_duration * 1000);
+      if(!m_mutex->timed_lock(timeout))
+      {
+        repairBrokenLock();
+      }
+    }
+
+    ~SMScopedWriterLock()
+    {
+      m_mutex->unlock();
+    }
+  };
 
   SharedMemoryTransport::SharedMemoryTransport(std::string interface_name)
   {
     PRINT_TRACE_ENTER
     std::cerr << "Initializing SharedMemoryTransport" << std::endl;
     m_interface_name = interface_name;
-    m_memory_mutex_name = interface_name + "_mutex";
-    m_data_name = interface_name + "_data";
-    m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_or_create, m_memory_mutex_name.c_str());
+    m_data_name = interface_name + "data";
 
+    SMScopedWriterLock memory_lock(m_interface_name, "");
+
+    //try to open existing shared memory
     try
     {
-      boost::posix_time::ptime timeout = boost::get_system_time() + boost::posix_time::milliseconds(1000);
-      if(m_mutex->timed_lock(timeout))
-      {
-        m_mutex->unlock();
-      }
-      else //lock is most likely broken
-      {
-        std::cerr << "SharedMemoryTransport: SHARED MEMORY NOT CLEANED UP PROPERLY! DELETING OLD SPACES!\n" << " - m_mutex_name: " << m_memory_mutex_name << "\n" << " - m_data_name: " << m_data_name << "\n";
-
-        // delete old shared memory objects
-        boost::interprocess::shared_memory_object::remove(m_data_name.c_str());
-        boost::interprocess::named_upgradable_mutex::remove(m_memory_mutex_name.c_str());
-        m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_or_create, m_memory_mutex_name.c_str());
-      }
+      boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
+      unsigned long* connection_tokens = segment.find<unsigned long>("connection_tokens").first;
+      *connection_tokens = *connection_tokens + 1;
+      std::cerr << "Connected to " << interface_name << " space." << std::endl;
     }
-    catch(boost::interprocess::interprocess_exception ee)
+    catch(boost::interprocess::interprocess_exception &ex) //shared memory hasn't been created yet, so we'll make it
     {
-      std::cerr << "Exception while initializing shared memory interface!\n" << " - error: " << ee.what();
-      throw ee;
-    }
-
-    {
-      boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(*m_mutex);
-      //try to open existing shared memory
-      try
+      std::cerr << "SM space " << interface_name << " not found. Creating it." << std::endl;
+      unsigned long base_size = 8192; //make sure we have enough room to create the default objects
       {
-        boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
-        unsigned long* connection_tokens = segment.find<unsigned long>("connection_tokens").first;
+        boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::create_only, m_data_name.c_str(), base_size);
+
+        unsigned long* connection_tokens = segment.construct<unsigned long>("connection_tokens")(0);
         *connection_tokens = *connection_tokens + 1;
-        std::cerr << "Connected to " << interface_name << " space." << std::endl;
       }
-      catch(boost::interprocess::interprocess_exception &ex) //shared memory hasn't been created yet, so we'll make it
-      {
-        std::cerr << "SM space " << interface_name << " not found. Creating it." << std::endl;
-        unsigned long base_size = 8192; //make sure we have enough room to create the default objects
-        {
-          boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::create_only, m_data_name.c_str(), base_size);
-
-          unsigned long* connection_tokens = segment.construct<unsigned long>("connection_tokens")(0);
-          *connection_tokens = *connection_tokens + 1;
-        }
-        boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str());
-        std::cerr << "Created " << interface_name << " space." << std::endl;
-      }
+      boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str());
+      std::cerr << "Created " << interface_name << " space." << std::endl;
     }
     PRINT_TRACE_EXIT
   }
@@ -129,7 +181,7 @@ namespace shared_memory_interface
   {
     //TODO: find a way to ensure that the destructor is called
     {
-      boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(*m_mutex);
+      SMScopedWriterLock memory_lock(m_interface_name, "");
       boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
       unsigned long* connection_tokens = segment.find<unsigned long>("connection_tokens").first;
       if((*connection_tokens) > 1) //we aren't the last one here
@@ -142,22 +194,21 @@ namespace shared_memory_interface
     //if we have reached this point, we are the last one attached to the memory, so delete everything
     std::cerr << "Closing down shared memory cleanly.\n";
     boost::interprocess::shared_memory_object::remove(m_data_name.c_str());
-    boost::interprocess::named_upgradable_mutex::remove(m_memory_mutex_name.c_str());
+    SMScopedLock::destroy(m_interface_name, "");
   }
 
   void SharedMemoryTransport::destroyMemory(std::string interface_name)
   {
     std::cerr << "Destroying shared memory space " << interface_name << "." << std::endl;
-    std::string mutex_name = interface_name + "_mutex";
-    std::string data_name = interface_name + "_data";
+    std::string data_name = interface_name + "data";
     boost::interprocess::shared_memory_object::remove(data_name.c_str());
-    boost::interprocess::named_upgradable_mutex::remove(mutex_name.c_str());
+    SMScopedLock::destroy(interface_name, "");
   }
 
   bool SharedMemoryTransport::addFloatingPointMatrixField(std::string field_name, unsigned long rows, unsigned long cols)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(*m_mutex);
+    SMScopedWriterLock memory_lock(m_interface_name, "");
 
     //check to see if someone else created the field_name
     try
@@ -168,6 +219,7 @@ namespace shared_memory_interface
       {
         if(vector->size() == (rows * cols))
         {
+          std::cerr << "Using existing SM field for " << field_name << std::endl;
           PRINT_TRACE_EXIT
           return true; //field_name already exists, so we're done
         }
@@ -200,9 +252,7 @@ namespace shared_memory_interface
         vector->resize(rows * cols, 0.0);
         segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
         segment.construct<unsigned long>((field_name + "_row_stride").c_str())(cols); //row_stride = number of cols in each row
-//        segment.construct<boost::interprocess::interprocess_upgradable_mutex>((field_name + "_mutex").c_str())();
-        boost::interprocess::named_upgradable_mutex::remove((m_interface_name + field_name + "mutex").c_str());
-        boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, (m_interface_name + field_name + "mutex").c_str());
+        SMScopedLock::create(m_interface_name, field_name);
       }
       boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str()); //don't overuse memory
     }
@@ -220,7 +270,7 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::addStringVectorField(std::string field_name, unsigned long length)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(*m_mutex);
+    SMScopedWriterLock memory_lock(m_interface_name, "");
 
     //check to see if someone else created the field_name
     try
@@ -231,6 +281,7 @@ namespace shared_memory_interface
       {
         if(vector->size() == length)
         {
+          std::cerr << "Using existing SM field for " << field_name << std::endl;
           PRINT_TRACE_EXIT
           return true; //field_name already exists, so we're done
         }
@@ -239,8 +290,6 @@ namespace shared_memory_interface
         std::cerr << "WARNING: replacing existing field_name!";
         segment.destroy<SMStringVector>(field_name.c_str());
         segment.destroy<bool>((field_name + "_new_data_flag").c_str());
-        boost::interprocess::named_upgradable_mutex::remove((m_interface_name + field_name + "mutex").c_str());
-        boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, (m_interface_name + field_name + "mutex").c_str());
       }
     }
     catch(boost::interprocess::interprocess_exception &ex)
@@ -267,8 +316,7 @@ namespace shared_memory_interface
           strings_sm->push_back(string);
         }
         segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
-        boost::interprocess::named_upgradable_mutex::remove((m_interface_name + field_name + "mutex").c_str());
-        boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, (m_interface_name + field_name + "mutex").c_str());
+        SMScopedLock::create(m_interface_name, field_name);
       }
 
       boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str()); //don't overuse memory
@@ -287,7 +335,7 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::addSerializedField(std::string field_name, std::string md5sum, std::string datatype)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(*m_mutex);
+    SMScopedWriterLock memory_lock(m_interface_name, "");
 
     //check to see if someone else created the field_name
     try
@@ -296,6 +344,7 @@ namespace shared_memory_interface
       SMString* string = segment.find<SMString>(field_name.c_str()).first;
       if(string) //field_name already created
       {
+        std::cerr << "Using existing SM field for " << field_name << std::endl;
         PRINT_TRACE_EXIT
         return true; //field_name already exists, so we're done
       }
@@ -325,8 +374,7 @@ namespace shared_memory_interface
         *datatype_sm = datatype.c_str();
 
         segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
-        boost::interprocess::named_upgradable_mutex::remove((m_interface_name + field_name + "mutex").c_str());
-        boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, (m_interface_name + field_name + "mutex").c_str());
+        SMScopedLock::create(m_interface_name, field_name);
       }
 
       boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str()); //don't overuse memory
@@ -345,8 +393,8 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::getFloatingPointData(std::string field_name, unsigned long joint_idx, double& data)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::sharable_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    SMScopedReaderLock lock(m_interface_name, field_name);
+
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
     SMDoubleVector* field_data_sm = segment.find<SMDoubleVector>(field_name.c_str()).first;
     if(field_data_sm == 0) //no one has set the joint names yet
@@ -362,8 +410,8 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::setFloatingPointData(std::string field_name, unsigned long joint_idx, double value)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    SMScopedWriterLock lock(m_interface_name, field_name);
+
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
     SMDoubleVector* field_data_sm = segment.find<SMDoubleVector>(field_name.c_str()).first;
     if(field_data_sm == 0) //no one has set the joint names yet
@@ -379,8 +427,7 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::getFloatingPointField(std::string field_name, std::vector<double>& field_data_local)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::sharable_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    SMScopedReaderLock lock(m_interface_name, field_name);
 
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
     SMDoubleVector* field_data_sm = segment.find<SMDoubleVector>(field_name.c_str()).first;
@@ -403,8 +450,7 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::setFloatingPointField(std::string field_name, std::vector<double>& field_data_local)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    SMScopedWriterLock lock(m_interface_name, field_name);
 
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
     SMDoubleVector* field_data_sm = segment.find<SMDoubleVector>(field_name.c_str()).first;
@@ -432,23 +478,23 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::checkFloatingPointField(std::string field_name)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::sharable_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    SMScopedReaderLock lock(m_interface_name, field_name);
+
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
     if(segment.find<SMDoubleVector>(field_name.c_str()).first == 0) //field_name doesn't exist
     {
       PRINT_TRACE_EXIT
       return false;
     }
-    return true;
     PRINT_TRACE_EXIT
+    return true;
   }
 
   bool SharedMemoryTransport::getStringVectorField(std::string field_name, std::vector<std::string>& strings_local)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::sharable_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    SMScopedReaderLock lock(m_interface_name, field_name);
+
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
     SMStringVector* strings_sm = segment.find<SMStringVector>(field_name.c_str()).first;
     if(strings_sm == 0) //no one has set the joint strings yet
@@ -470,8 +516,7 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::setStringVectorField(std::string field_name, std::vector<std::string>& strings_local)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    SMScopedWriterLock lock(m_interface_name, field_name);
 
     unsigned long total_length = 0;
     {
@@ -531,24 +576,24 @@ namespace shared_memory_interface
 
   bool SharedMemoryTransport::checkStringVectorField(std::string field_name)
   {
-    PRINT_TRACE_ENTER //TODO: wrap mutex get in a try catch
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::sharable_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    PRINT_TRACE_ENTER
+    SMScopedReaderLock lock(m_interface_name, field_name);
+
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
     if(segment.find<SMStringVector>(field_name.c_str()).first == 0) //field_name doesn't exist
     {
       PRINT_TRACE_EXIT
       return false;
     }
-    return true;
     PRINT_TRACE_EXIT
+    return true;
   }
 
   bool SharedMemoryTransport::getSerializedField(std::string field_name, std::string& data, std::string& md5sum, std::string& datatype)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::sharable_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    SMScopedReaderLock lock(m_interface_name, field_name);
+
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
     SMString* field_data_sm = segment.find<SMString>(field_name.c_str()).first;
     SMString* field_md5sum_sm = segment.find<SMString>((field_name + "_md5sum").c_str()).first;
@@ -571,11 +616,9 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::setSerializedField(std::string field_name, std::string data, std::string md5sum, std::string datatype)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    SMScopedWriterLock lock(m_interface_name, field_name);
 
     boost::interprocess::managed_shared_memory::grow(m_data_name.c_str(), data.length() * sizeof(char) + 4096); //add space for the new field_name's data + overhead
-
     {
       boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
       SMString* field_data_sm = segment.find<SMString>(field_name.c_str()).first;
@@ -605,7 +648,6 @@ namespace shared_memory_interface
 
       *field_data_sm = SMString(data.begin(), data.end(), segment.get_segment_manager());
     }
-
     boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str()); //don't overuse memory
 
     PRINT_TRACE_EXIT
@@ -615,22 +657,23 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::checkSerializedField(std::string field_name)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::sharable_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    SMScopedReaderLock lock(m_interface_name, field_name);
+
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
     if(segment.find<SMString>(field_name.c_str()).first == 0) //field_name doesn't exist
     {
       PRINT_TRACE_EXIT
       return false;
     }
-    return true;
     PRINT_TRACE_EXIT
+    return true;
   }
 
   bool SharedMemoryTransport::hasConnections()
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(*m_mutex);
+    SMScopedReaderLock memory_lock(m_interface_name, "");
+
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
     unsigned long* connection_tokens = segment.find<unsigned long>("connection_tokens").first;
     if(connection_tokens == 0)
@@ -646,8 +689,8 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::hasNewData(std::string field_name)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::sharable_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    SMScopedReaderLock lock(m_interface_name, field_name);
+
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
     bool* flag = segment.find<bool>(std::string(field_name + "_new_data_flag").c_str()).first;
     PRINT_TRACE_EXIT
@@ -657,6 +700,7 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::awaitNewData(std::string field_name, double timeout)
   {
     PRINT_TRACE_ENTER
+    //TODO: integrate condition variables into SMScopedLock?
     boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
     boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(mutex); //TODO: see if we can make this sharable
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
@@ -689,8 +733,8 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::signalAvailable(std::string field_name)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    SMScopedWriterLock lock(m_interface_name, field_name);
+
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
     bool* flag = segment.find<bool>(std::string(field_name + "_new_data_flag").c_str()).first;
     if(!flag)
@@ -709,8 +753,8 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::signalProcessed(std::string field_name)
   {
     PRINT_TRACE_ENTER
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
-    boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(mutex);
+    SMScopedWriterLock lock(m_interface_name, field_name);
+
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
     bool* flag = segment.find<bool>(std::string(field_name + "_new_data_flag").c_str()).first;
     if(!flag)
