@@ -25,8 +25,8 @@ add_library(shared_memory_interface src/shared_memory_transport.cpp src/shared_m
 target_link_libraries(shared_memory_interface ${Boost_LIBRARIES} -lrt)
 
 #watchdog (shared memory cleanup tool)
-rosbuild_add_executable(sm_watchdog src/sm_watchdog.cpp)
-target_link_libraries(sm_watchdog shared_memory_interface)
+rosbuild_add_executable(watchdog src/watchdog.cpp)
+target_link_libraries(watchdog shared_memory_interface)
 
 #echo
 #rosbuild_add_executable(echo src/echo.cpp)

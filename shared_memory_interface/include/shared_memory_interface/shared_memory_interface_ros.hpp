@@ -81,20 +81,15 @@ namespace shared_memory_interface
       bool success = true;
       if(m_smt.setSerializedField(field_name, serialized, md5sum, datatype))
       {
-        if(!m_smt.signalAvailable(field_name))
+        if(m_smt.signalAvailable(field_name))
         {
+          if(m_do_pub && m_pub_map[field_name].getNumSubscribers() > 0)
+          {
+            m_pub_map[field_name].publish(data);
+          }
           success = false;
         }
       }
-      if(m_do_pub && m_pub_map[field_name].getNumSubscribers() > 0)
-      {
-//        ROS_INFO("Publishing to ROS!");
-        m_pub_map[field_name].publish(data);
-      }
-//      else
-//      {
-//        ROS_INFO("Not publishing to ROS");
-//      }
       return success;
     }
 
