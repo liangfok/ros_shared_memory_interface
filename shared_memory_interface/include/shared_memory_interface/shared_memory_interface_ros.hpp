@@ -44,14 +44,13 @@ namespace shared_memory_interface
   class SharedMemoryInterfaceROS: public SharedMemoryInterface
   {
   public:
-    SharedMemoryInterfaceROS(std::string interface_name) :
+    SharedMemoryInterfaceROS(std::string interface_name, bool m_do_pub = true) :
         SharedMemoryInterface(interface_name)
     {
     }
 
     ~SharedMemoryInterfaceROS()
     {
-
     }
 
     template<typename T> //T must be the type of a ros message
@@ -61,6 +60,7 @@ namespace shared_memory_interface
       std::string md5sum = ros::message_traits::md5sum<MessageType>();
       std::string datatype = ros::message_traits::datatype<MessageType>();
 
+      m_pub_map[field_name] = m_nh.advertise<T>(getROSTopicName(field_name), 1);
       return m_smt.addSerializedField(field_name, md5sum, datatype);
     }
 
@@ -78,20 +78,31 @@ namespace shared_memory_interface
       ros::serialization::OStream ostream((unsigned char*) &serialized[0], oserial_size);
       ros::serialization::serialize(ostream, data);
 
+      bool success = true;
       if(m_smt.setSerializedField(field_name, serialized, md5sum, datatype))
       {
-        if(m_smt.signalAvailable(field_name))
+        if(!m_smt.signalAvailable(field_name))
         {
-          return true;
+          success = false;
         }
       }
-      return false;
+      if(m_do_pub && m_pub_map[field_name].getNumSubscribers() > 0)
+      {
+//        ROS_INFO("Publishing to ROS!");
+        m_pub_map[field_name].publish(data);
+      }
+//      else
+//      {
+//        ROS_INFO("Not publishing to ROS");
+//      }
+      return success;
     }
 
     template<typename T> //T must be the type of a ros message
     bool subscribeSerializedROS(std::string field_name, boost::function<void(T&)> callback)
     {
       m_callback_threads.push_back(new boost::thread(boost::bind(&SharedMemoryInterfaceROS::callbackThreadFunctionSerialized<T>, this, field_name, callback)));
+      m_sub_map[field_name] = m_nh.subscribe<T>(getROSTopicName(field_name), 1, boost::bind(&SharedMemoryInterfaceROS::blankCallback<T>, this, _1));
       return true;
     }
 
@@ -162,6 +173,21 @@ namespace shared_memory_interface
         callback(msg);
       }
     }
+
+    template<typename T> //T must be the type of a ros message
+    void blankCallback(const typename T::ConstPtr& msg)
+    {
+    }
+
+    std::string getROSTopicName(std::string field_name)
+    {
+      return ("/sm/" + m_interface_name + "/" + field_name);
+    }
+
+    ros::NodeHandle m_nh;
+    std::map<std::string, ros::Subscriber> m_sub_map;
+    std::map<std::string, ros::Publisher> m_pub_map;
+    bool m_do_pub;
   };
 
 }
