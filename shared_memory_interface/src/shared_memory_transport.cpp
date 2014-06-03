@@ -47,15 +47,16 @@ namespace shared_memory_interface
 
   class SMScopedLock
   {
-#define BROKEN_LOCK_TIMEOUT 1.0
   public:
     SMScopedLock(std::string interface_name, std::string field_name)
     {
-      m_full_name = getFullName(m_interface_name, m_field_name);
+      assert(interface_name.length() != 0);
       m_interface_name = interface_name;
       m_field_name = field_name;
+      m_full_name = getFullName(m_interface_name, m_field_name);
       try
       {
+        //std::cerr << "Attached to mutex " << m_full_name << "!" << std::endl;
         m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_only, m_full_name.c_str());
       }
       catch(...)
@@ -77,27 +78,32 @@ namespace shared_memory_interface
 
     static void destroy(std::string interface_name, std::string field_name)
     {
+      assert(interface_name.length() != 0);
       boost::interprocess::named_upgradable_mutex::remove(getFullName(interface_name, field_name).c_str());
     }
 
     static void create(std::string interface_name, std::string field_name)
     {
+      assert(interface_name.length() != 0);
       boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, getFullName(interface_name, field_name).c_str());
+    }
+
+    static std::string getFullName(std::string& interface_name, std::string field_name)
+    {
+      assert(interface_name.length() != 0);
+      //std::cerr << interface_name << "+" << field_name << "+mutex=" << (interface_name + field_name + "mutex") << std::endl;
+      return (interface_name + "__" + field_name + "__mutex");
     }
 
   protected:
     void repairBrokenLock()
     {
-      std::cerr << "SharedMemoryTransport: Found broken lock " << m_full_name << "! Repairing!" << std::endl;
+      std::cerr << "SharedMemoryTransport: Found broken lock " << m_full_name << "! Repairing!" << std::endl;   
+      assert(m_interface_name.length() != 0);
       destroy(m_interface_name, m_field_name);
       create(m_interface_name, m_field_name);
       delete m_mutex;
       m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_only, m_full_name.c_str());
-    }
-
-    static std::string getFullName(std::string interface_name, std::string field_name)
-    {
-      return (interface_name + field_name + "mutex");
     }
 
     boost::interprocess::named_upgradable_mutex* m_mutex;
@@ -364,6 +370,7 @@ namespace shared_memory_interface
       boost::interprocess::managed_shared_memory::grow(m_data_name.c_str(), 4096); //add space for the new field_name's data + overhead
 
       {
+        std::cerr << "Creating new SM field for " << field_name << std::endl;
         boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
 
         const SMCharAllocator alloc_char_inst(segment.get_segment_manager());
@@ -519,6 +526,7 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::setStringVectorField(std::string field_name, std::vector<std::string>& strings_local)
   {
     PRINT_TRACE_ENTER
+    SMScopedWriterLock memory_lock(m_interface_name, "");
     SMScopedWriterLock lock(m_interface_name, field_name);
 
     unsigned long total_length = 0;
@@ -619,6 +627,7 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::setSerializedField(std::string field_name, std::string data, std::string md5sum, std::string datatype)
   {
     PRINT_TRACE_ENTER
+    SMScopedWriterLock memory_lock(m_interface_name, "");
     SMScopedWriterLock lock(m_interface_name, field_name);
 
     boost::interprocess::managed_shared_memory::grow(m_data_name.c_str(), data.length() * sizeof(char) + 4096); //add space for the new field_name's data + overhead
@@ -704,7 +713,7 @@ namespace shared_memory_interface
   {
     PRINT_TRACE_ENTER
     //TODO: integrate condition variables into SMScopedLock?
-    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, (m_interface_name + field_name + "mutex").c_str());
+    boost::interprocess::named_upgradable_mutex mutex(boost::interprocess::open_only, SMScopedLock::getFullName(m_interface_name, field_name).c_str());
     boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex> lock(mutex); //TODO: see if we can make this sharable
     boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
 
