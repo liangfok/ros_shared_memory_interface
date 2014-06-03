@@ -252,6 +252,7 @@ namespace shared_memory_interface
         vector->resize(rows * cols, 0.0);
         segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
         segment.construct<unsigned long>((field_name + "_row_stride").c_str())(cols); //row_stride = number of cols in each row
+        SMScopedLock::destroy(m_interface_name, field_name); //this shouldn't be necessary, but sometimes helps
         SMScopedLock::create(m_interface_name, field_name);
       }
       boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str()); //don't overuse memory
@@ -316,6 +317,7 @@ namespace shared_memory_interface
           strings_sm->push_back(string);
         }
         segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
+        SMScopedLock::destroy(m_interface_name, field_name); //this shouldn't be necessary, but sometimes helps
         SMScopedLock::create(m_interface_name, field_name);
       }
 
@@ -374,6 +376,7 @@ namespace shared_memory_interface
         *datatype_sm = datatype.c_str();
 
         segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
+        SMScopedLock::destroy(m_interface_name, field_name); //this shouldn't be necessary, but sometimes helps
         SMScopedLock::create(m_interface_name, field_name);
       }
 
