@@ -29,7 +29,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "shared_memory_interface/sm_watchdog.hpp"
+#include "shared_memory_interface/watchdog.hpp"
 
 std::string g_interface_name;
 
@@ -67,7 +67,7 @@ namespace shared_memory_interface
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "sm_watchdog");
+  ros::init(argc, argv, "watchdog");
   ros::NodeHandle nh("~");
 
   shared_memory_interface::SMWatchdog node(nh);
