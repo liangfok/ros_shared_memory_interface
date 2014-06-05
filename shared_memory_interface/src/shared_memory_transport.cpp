@@ -234,6 +234,7 @@ namespace shared_memory_interface
         std::cerr << "WARNING: replacing existing field_name!";
         segment.destroy<SMDoubleVector>(field_name.c_str());
         segment.destroy<bool>((field_name + "_new_data_flag").c_str());
+        segment.destroy<bool>(std::string(field_name + "_invalid").c_str());
         segment.destroy<unsigned long>((field_name + "_row_stride").c_str());
         boost::interprocess::named_upgradable_mutex::remove((m_interface_name + field_name + "mutex").c_str());
         boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, (m_interface_name + field_name + "mutex").c_str());
@@ -257,6 +258,7 @@ namespace shared_memory_interface
         SMDoubleVector* vector = segment.construct<SMDoubleVector>(field_name.c_str())(alloc_double_inst);
         vector->resize(rows * cols, 0.0);
         segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
+        segment.construct<bool>(std::string(field_name + "_invalid").c_str())(true); //field is invalid until someone writes actual data to it
         segment.construct<unsigned long>((field_name + "_row_stride").c_str())(cols); //row_stride = number of cols in each row
         SMScopedLock::destroy(m_interface_name, field_name); //this shouldn't be necessary, but sometimes helps
         SMScopedLock::create(m_interface_name, field_name);
@@ -297,6 +299,7 @@ namespace shared_memory_interface
         std::cerr << "WARNING: replacing existing field_name!";
         segment.destroy<SMStringVector>(field_name.c_str());
         segment.destroy<bool>((field_name + "_new_data_flag").c_str());
+        segment.destroy<bool>(std::string(field_name + "_invalid").c_str());
       }
     }
     catch(boost::interprocess::interprocess_exception &ex)
@@ -323,6 +326,7 @@ namespace shared_memory_interface
           strings_sm->push_back(string);
         }
         segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
+        segment.construct<bool>(std::string(field_name + "_invalid").c_str())(true); //field is invalid until someone writes actual data to it
         SMScopedLock::destroy(m_interface_name, field_name); //this shouldn't be necessary, but sometimes helps
         SMScopedLock::create(m_interface_name, field_name);
       }
@@ -383,6 +387,7 @@ namespace shared_memory_interface
         *datatype_sm = datatype.c_str();
 
         segment.construct<bool>(std::string(field_name + "_new_data_flag").c_str())(false);
+        segment.construct<bool>(std::string(field_name + "_invalid").c_str())(true); //field is invalid until someone writes actual data to it
         SMScopedLock::destroy(m_interface_name, field_name); //this shouldn't be necessary, but sometimes helps
         SMScopedLock::create(m_interface_name, field_name);
       }
@@ -481,6 +486,10 @@ namespace shared_memory_interface
     {
       field_data_sm->at(i) = field_data_local.at(i);
     }
+
+    bool* invalid = segment.find<bool>((field_name + "_invalid").c_str()).first;
+    *invalid = false;
+
     PRINT_TRACE_EXIT
     return true;
   }
@@ -496,6 +505,13 @@ namespace shared_memory_interface
       PRINT_TRACE_EXIT
       return false;
     }
+
+    bool* invalid = segment.find<bool>((field_name + "_invalid").c_str()).first;
+    if(*invalid)
+    {
+      return false;
+    }
+
     PRINT_TRACE_EXIT
     return true;
   }
@@ -570,6 +586,9 @@ namespace shared_memory_interface
           string = strings_local.at(i).c_str();
           strings_sm->push_back(string);
         }
+
+        bool* invalid = segment.find<bool>((field_name + "_invalid").c_str()).first;
+        *invalid = false;
       }
 
       boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str()); //don't overuse memory
@@ -596,6 +615,13 @@ namespace shared_memory_interface
       PRINT_TRACE_EXIT
       return false;
     }
+
+    bool* invalid = segment.find<bool>((field_name + "_invalid").c_str()).first;
+    if(*invalid)
+    {
+      return false;
+    }
+
     PRINT_TRACE_EXIT
     return true;
   }
@@ -659,6 +685,9 @@ namespace shared_memory_interface
       }
 
       *field_data_sm = SMString(data.begin(), data.end(), segment.get_segment_manager());
+
+      bool* invalid = segment.find<bool>((field_name + "_invalid").c_str()).first;
+      *invalid = false;
     }
     boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str()); //don't overuse memory
 
@@ -677,6 +706,13 @@ namespace shared_memory_interface
       PRINT_TRACE_EXIT
       return false;
     }
+
+    bool* invalid = segment.find<bool>((field_name + "_invalid").c_str()).first;
+    if(*invalid)
+    {
+      return false;
+    }
+
     PRINT_TRACE_EXIT
     return true;
   }

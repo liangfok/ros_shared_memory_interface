@@ -120,9 +120,15 @@ namespace shared_memory_interface
     template<typename T> //T must be the type of a ros message
     bool getCurrentSerializedROS(std::string field_name, T& msg, double timeout = -1)
     {
-      if(!m_smt.checkSerializedField(field_name)) //if the field doesn't exist yet, we can't retrieve the data
+      if(timeout == 0 && !m_smt.checkSerializedField(field_name))
       {
-        if(!m_smt.awaitNewData(field_name, timeout)) //wait for the field to be advertised
+        return false;
+      }
+
+      boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(1000.0 * timeout);
+      while(!m_smt.checkSerializedField(field_name)) //if the field doesn't exist yet, we can't retrieve the data
+      {
+        if(boost::get_system_time() > timeout_time) //wait for the field to be advertised
         {
           return false;
         }
@@ -131,6 +137,12 @@ namespace shared_memory_interface
       std::string serialized_data, md5sum, datatype;
       m_smt.getSerializedField(field_name, serialized_data, md5sum, datatype);
       m_smt.signalProcessed(field_name);
+
+      if(serialized_data.length() == 0)
+      {
+        ROS_WARN_THROTTLE(1.0, "SM field %s exists but has never been written to!", field_name.c_str());
+        return false;
+      }
 
       ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
       ros::serialization::deserialize(istream, msg);
