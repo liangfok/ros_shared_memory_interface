@@ -44,9 +44,10 @@ namespace shared_memory_interface
   class SharedMemoryInterfaceROS: public SharedMemoryInterface
   {
   public:
-    SharedMemoryInterfaceROS(std::string interface_name, bool m_do_pub = true) :
+    SharedMemoryInterfaceROS(std::string interface_name, bool do_pub = true) :
         SharedMemoryInterface(interface_name)
     {
+      m_do_pub = do_pub;
     }
 
     ~SharedMemoryInterfaceROS()
@@ -60,7 +61,7 @@ namespace shared_memory_interface
       std::string md5sum = ros::message_traits::md5sum<MessageType>();
       std::string datatype = ros::message_traits::datatype<MessageType>();
 
-      m_pub_map[field_name] = m_nh.advertise<T>(getROSTopicName(field_name), 1);
+      m_pub_map[field_name] = m_nh.advertise<T>(getROSTopicName(field_name), 1, true);
       return m_smt.addSerializedField(field_name, md5sum, datatype);
     }
 
@@ -78,19 +79,27 @@ namespace shared_memory_interface
       ros::serialization::OStream ostream((unsigned char*) &serialized[0], oserial_size);
       ros::serialization::serialize(ostream, data);
 
-      bool success = true;
       if(m_smt.setSerializedField(field_name, serialized, md5sum, datatype))
       {
         if(m_smt.signalAvailable(field_name))
         {
-          if(m_do_pub && m_pub_map[field_name].getNumSubscribers() > 0)
+          if(m_do_pub) // && m_pub_map[field_name].getNumSubscribers() > 0)
           {
             m_pub_map[field_name].publish(data);
           }
-          success = false;
+          return true;
+        }
+        else
+        {
+          std::cerr << "Failed to signal available on field " << field_name << std::endl;
+          return false;
         }
       }
-      return success;
+      else
+      {
+        std::cerr << "Failed to write to field " << field_name << std::endl;
+        return false;
+      }
     }
 
     template<typename T> //T must be the type of a ros message
@@ -124,14 +133,30 @@ namespace shared_memory_interface
       {
         return false;
       }
-
-      boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(1000.0 * timeout);
-      while(!m_smt.checkSerializedField(field_name)) //if the field doesn't exist yet, we can't retrieve the data
+      else if(timeout < 0)
       {
-        if(boost::get_system_time() > timeout_time) //wait for the field to be advertised
+        m_smt.awaitNewData(field_name);
+      }
+      else
+      {
+        boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(1000.0 * timeout);
+        while(!m_smt.checkSerializedField(field_name)) //if the field doesn't exist yet, we can't retrieve the data
         {
-          return false;
+          if(boost::get_system_time() > timeout_time) //wait for the field to be advertised
+          {
+            return false;
+          }
         }
+      }
+
+      if(m_sub_map.find(field_name) == m_sub_map.end())
+      {
+        m_sub_map[field_name] = m_nh.subscribe<T>(getROSTopicName(field_name), 1, boost::bind(&SharedMemoryInterfaceROS::blankCallback<T>, this, _1));
+      }
+
+      if(field_name == "joint_names")
+      {
+        std::cerr << "     Someone's reading joint names! \n";
       }
 
       std::string serialized_data, md5sum, datatype;

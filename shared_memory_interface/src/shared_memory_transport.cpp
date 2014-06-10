@@ -710,6 +710,7 @@ namespace shared_memory_interface
     bool* invalid = segment.find<bool>((field_name + "_invalid").c_str()).first;
     if(*invalid)
     {
+      PRINT_TRACE_EXIT
       return false;
     }
 
