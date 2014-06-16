@@ -45,6 +45,13 @@ namespace shared_memory_interface
   typedef boost::interprocess::allocator<SMString, boost::interprocess::managed_shared_memory::segment_manager> SMStringAllocator;
   typedef boost::interprocess::vector<SMString, SMStringAllocator> SMStringVector;
 
+  boost::interprocess::permissions unrestricted()
+  {
+    boost::interprocess::permissions perm;
+    perm.set_unrestricted();
+    return perm;
+  }
+
   class SMScopedLock
   {
   public:
@@ -58,11 +65,13 @@ namespace shared_memory_interface
       {
         //std::cerr << "Attached to mutex " << m_full_name << "!" << std::endl;
         m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_only, m_full_name.c_str());
+        
       }
       catch(...)
       {
         std::cerr << "Mutex " << m_full_name << " not found! Creating it!";
-        m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, m_full_name.c_str());
+        m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_or_create, m_full_name.c_str(), unrestricted());
+        //m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, m_full_name.c_str()); //TODO: figure out why this crashes
       }
     }
 
@@ -85,7 +94,7 @@ namespace shared_memory_interface
     static void create(std::string interface_name, std::string field_name)
     {
       assert(interface_name.length() != 0);
-      boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, getFullName(interface_name, field_name).c_str());
+      boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, getFullName(interface_name, field_name).c_str(), unrestricted());
     }
 
     static std::string getFullName(std::string& interface_name, std::string field_name)
@@ -172,7 +181,7 @@ namespace shared_memory_interface
       std::cerr << "SM space " << interface_name << " not found. Creating it." << std::endl;
       unsigned long base_size = 8192; //make sure we have enough room to create the default objects
       {
-        boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::create_only, m_data_name.c_str(), base_size);
+        boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::create_only, m_data_name.c_str(), base_size, NULL, unrestricted());
 
         unsigned long* connection_tokens = segment.construct<unsigned long>("connection_tokens")(0);
         *connection_tokens = *connection_tokens + 1;
@@ -237,7 +246,7 @@ namespace shared_memory_interface
         segment.destroy<bool>(std::string(field_name + "_invalid").c_str());
         segment.destroy<unsigned long>((field_name + "_row_stride").c_str());
         boost::interprocess::named_upgradable_mutex::remove((m_interface_name + field_name + "mutex").c_str());
-        boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, (m_interface_name + field_name + "mutex").c_str());
+        boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, (m_interface_name + field_name + "mutex").c_str(), unrestricted());
       }
     }
     catch(boost::interprocess::interprocess_exception &ex)
@@ -764,12 +773,12 @@ namespace shared_memory_interface
 
     if(timeout < 0)
     {
-      boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str()).wait(lock);
+      boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str(), unrestricted()).wait(lock);
     }
     else
     {
       boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(timeout);
-      if(!boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str()).timed_wait(lock, timeout_time))
+      if(!boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str(), unrestricted()).timed_wait(lock, timeout_time))
       {
         PRINT_TRACE_EXIT
         return false;
@@ -792,7 +801,7 @@ namespace shared_memory_interface
       return false;
     }
 
-    boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str()).notify_all();
+    boost::interprocess::named_condition(boost::interprocess::open_or_create, (field_name + "_ready").c_str(), unrestricted()).notify_all();
 
     *flag = true;
     PRINT_TRACE_EXIT
