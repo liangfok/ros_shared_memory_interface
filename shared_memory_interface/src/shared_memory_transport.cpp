@@ -71,7 +71,7 @@ namespace shared_memory_interface
       {
         std::cerr << "Mutex " << m_full_name << " not found! Creating it!";
         m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_or_create, m_full_name.c_str(), unrestricted());
-        //m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, m_full_name.c_str()); //TODO: figure out why this crashes
+        //m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_or_create, m_full_name.c_str()); //TODO: figure out why this crashes
       }
     }
 
@@ -94,7 +94,7 @@ namespace shared_memory_interface
     static void create(std::string interface_name, std::string field_name)
     {
       assert(interface_name.length() != 0);
-      boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, getFullName(interface_name, field_name).c_str(), unrestricted());
+      boost::interprocess::named_upgradable_mutex(boost::interprocess::open_or_create, getFullName(interface_name, field_name).c_str(), unrestricted());
     }
 
     static std::string getFullName(std::string& interface_name, std::string field_name)
@@ -181,7 +181,7 @@ namespace shared_memory_interface
       std::cerr << "SM space " << interface_name << " not found. Creating it." << std::endl;
       unsigned long base_size = 8192; //make sure we have enough room to create the default objects
       {
-        boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::create_only, m_data_name.c_str(), base_size, NULL, unrestricted());
+        boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_or_create, m_data_name.c_str(), base_size, NULL, unrestricted());
 
         unsigned long* connection_tokens = segment.construct<unsigned long>("connection_tokens")(0);
         *connection_tokens = *connection_tokens + 1;
@@ -246,7 +246,7 @@ namespace shared_memory_interface
         segment.destroy<bool>(std::string(field_name + "_invalid").c_str());
         segment.destroy<unsigned long>((field_name + "_row_stride").c_str());
         boost::interprocess::named_upgradable_mutex::remove((m_interface_name + field_name + "mutex").c_str());
-        boost::interprocess::named_upgradable_mutex(boost::interprocess::create_only, (m_interface_name + field_name + "mutex").c_str(), unrestricted());
+        boost::interprocess::named_upgradable_mutex(boost::interprocess::open_or_create, (m_interface_name + field_name + "mutex").c_str(), unrestricted());
       }
     }
     catch(boost::interprocess::interprocess_exception &ex)
