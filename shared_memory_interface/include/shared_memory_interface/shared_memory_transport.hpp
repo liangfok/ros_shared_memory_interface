@@ -57,6 +57,8 @@
 #include <boost/interprocess/exceptions.hpp>
 #include <boost/thread/thread_time.hpp>
 
+#include <unistd.h>
+
 namespace shared_memory_interface
 {
   typedef boost::interprocess::interprocess_upgradable_mutex upgradable_mutex_type;

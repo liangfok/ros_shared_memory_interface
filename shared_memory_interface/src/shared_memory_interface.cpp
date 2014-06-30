@@ -47,6 +47,10 @@ namespace shared_memory_interface
 
   void SharedMemoryInterface::destroyMemory(std::string interface_name)
   {
+    char buf[100];
+    getlogin_r(buf, 100);
+    std::string username = std::string(buf);
+    interface_name = username + "/" + interface_name;
     SharedMemoryTransport::destroyMemory(interface_name);
   }
 

@@ -107,7 +107,7 @@ namespace shared_memory_interface
   protected:
     void repairBrokenLock()
     {
-      std::cerr << "SharedMemoryTransport: Found broken lock " << m_full_name << "! Repairing!" << std::endl;   
+      std::cerr << "SharedMemoryTransport: Found broken lock " << m_full_name << "! Repairing!" << std::endl;
       assert(m_interface_name.length() != 0);
       destroy(m_interface_name, m_field_name);
       create(m_interface_name, m_field_name);
@@ -124,7 +124,7 @@ namespace shared_memory_interface
   class SMScopedReaderLock: public SMScopedLock
   {
   public:
-    SMScopedReaderLock(std::string interface_name, std::string field_name, double timeout_duration=1.0) :
+    SMScopedReaderLock(std::string interface_name, std::string field_name, double timeout_duration = 1.0) :
         SMScopedLock(interface_name, field_name)
     {
       boost::posix_time::ptime timeout = boost::get_system_time() + boost::posix_time::milliseconds(timeout_duration * 1000);
@@ -143,7 +143,7 @@ namespace shared_memory_interface
   class SMScopedWriterLock: public SMScopedLock
   {
   public:
-    SMScopedWriterLock(std::string interface_name, std::string field_name, double timeout_duration=1.0) :
+    SMScopedWriterLock(std::string interface_name, std::string field_name, double timeout_duration = 1.0) :
         SMScopedLock(interface_name, field_name)
     {
       boost::posix_time::ptime timeout = boost::get_system_time() + boost::posix_time::milliseconds(timeout_duration * 1000);
@@ -163,7 +163,10 @@ namespace shared_memory_interface
   {
     PRINT_TRACE_ENTER
     std::cerr << "Initializing SharedMemoryTransport" << std::endl;
-    m_interface_name = interface_name;
+    char buf[100];
+    getlogin_r(buf, 100);
+    std::string username = std::string(buf);
+    m_interface_name = username + "/" + interface_name;
     m_data_name = interface_name + "data";
 
     SMScopedWriterLock memory_lock(m_interface_name, "");
