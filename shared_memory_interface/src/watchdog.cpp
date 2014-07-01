@@ -30,6 +30,8 @@
  */
 
 #include "shared_memory_interface/watchdog.hpp"
+#include <stdio.h>
+#include <pwd.h>
 
 std::string g_interface_name;
 

@@ -163,9 +163,16 @@ namespace shared_memory_interface
   {
     PRINT_TRACE_ENTER
     std::cerr << "Initializing SharedMemoryTransport" << std::endl;
-    char buf[100];
-    getlogin_r(buf, 100);
-    std::string username = std::string(buf);
+
+    char *name;
+    struct passwd *pass;
+    pass = getpwuid(getuid());
+    name = pass->pw_name;
+    std::string username = std::string(name);
+
+//    char buf[100];
+//    getlogin_r(buf, 100);
+//    std::string username = std::string(buf);
     m_interface_name = username + "__" + interface_name;
     m_data_name = m_interface_name + "data";
 
@@ -217,10 +224,17 @@ namespace shared_memory_interface
 
   void SharedMemoryTransport::destroyMemory(std::string interface_name)
   {
-    std::cerr << "Destroying shared memory space " << interface_name << "." << std::endl;
-    std::string data_name = interface_name + "data";
+    char *name;
+    struct passwd *pass;
+    pass = getpwuid(getuid());
+    name = pass->pw_name;
+    std::string username = std::string(name);
+    std::string full_interface_name = username + "__" + interface_name;
+
+    std::cerr << "Destroying shared memory space " << full_interface_name << "." << std::endl;
+    std::string data_name = full_interface_name + "data";
     boost::interprocess::shared_memory_object::remove(data_name.c_str());
-    SMScopedLock::destroy(interface_name, "");
+    SMScopedLock::destroy(full_interface_name, "");
   }
 
   bool SharedMemoryTransport::addFloatingPointMatrixField(std::string field_name, unsigned long rows, unsigned long cols)

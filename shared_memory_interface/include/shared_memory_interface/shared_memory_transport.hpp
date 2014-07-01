@@ -58,6 +58,7 @@
 #include <boost/thread/thread_time.hpp>
 
 #include <unistd.h>
+#include <pwd.h>
 
 namespace shared_memory_interface
 {
