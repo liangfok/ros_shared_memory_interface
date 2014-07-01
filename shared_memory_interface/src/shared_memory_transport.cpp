@@ -166,8 +166,8 @@ namespace shared_memory_interface
     char buf[100];
     getlogin_r(buf, 100);
     std::string username = std::string(buf);
-    m_interface_name = username + "/" + interface_name;
-    m_data_name = interface_name + "data";
+    m_interface_name = username + "__" + interface_name;
+    m_data_name = m_interface_name + "data";
 
     SMScopedWriterLock memory_lock(m_interface_name, "");
 
@@ -177,11 +177,11 @@ namespace shared_memory_interface
       boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, m_data_name.c_str());
       unsigned long* connection_tokens = segment.find<unsigned long>("connection_tokens").first;
       *connection_tokens = *connection_tokens + 1;
-      std::cerr << "Connected to " << interface_name << " space." << std::endl;
+      std::cerr << "Connected to " << m_interface_name << " space." << std::endl;
     }
     catch(boost::interprocess::interprocess_exception &ex) //shared memory hasn't been created yet, so we'll make it
     {
-      std::cerr << "SM space " << interface_name << " not found. Creating it." << std::endl;
+      std::cerr << "SM space " << m_interface_name << " not found. Creating it." << std::endl;
       unsigned long base_size = 8192; //make sure we have enough room to create the default objects
       {
         boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_or_create, m_data_name.c_str(), base_size, NULL, unrestricted());
@@ -190,7 +190,7 @@ namespace shared_memory_interface
         *connection_tokens = *connection_tokens + 1;
       }
       boost::interprocess::managed_shared_memory::shrink_to_fit(m_data_name.c_str());
-      std::cerr << "Created " << interface_name << " space." << std::endl;
+      std::cerr << "Created " << m_interface_name << " space." << std::endl;
     }
     PRINT_TRACE_EXIT
   }
