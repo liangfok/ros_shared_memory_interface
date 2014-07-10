@@ -126,14 +126,14 @@ int main(int argc, char **argv)
   //configure desired transport
   if(transport == "smoptimized")
   {
-    smi = new SharedMemoryInterfaceROS(nh.getNamespace());
+    smi = new SharedMemoryInterfaceROS("smi");
     ROS_INFO("Testing SM optimized transport of %d doubles at %ghz", (int) data_size, nominal_loop_rate);
     smi->advertiseFloatingPointVector("loopforward", data_size);
     smi->subscribeFloatingPointVector("loopback", boost::bind(&loopbackCallbackSMOptimized, _1));
   }
   else if(transport == "smmsg")
   {
-    smi = new SharedMemoryInterfaceROS(nh.getNamespace());
+    smi = new SharedMemoryInterfaceROS("smi");
     ROS_INFO("Testing SM message transport of %d doubles at %ghz", (int) data_size, nominal_loop_rate);
     smi->advertiseSerializedROS<Benchmark>("loopforward");
     smi->subscribeSerializedROS<Benchmark>("loopback", boost::bind(&loopbackCallbackSMMsg, _1));
