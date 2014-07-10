@@ -146,6 +146,11 @@ namespace shared_memory_interface
       std::string ros_field_name, sm_field_name;
       getFullNames(field_name, ros_field_name, sm_field_name);
 
+      if(m_sub_map.find(ros_field_name) == m_sub_map.end())
+      {
+        m_sub_map[ros_field_name] = m_nh.subscribe<T>(ros_field_name, 1, boost::bind(&SharedMemoryInterfaceROS::blankCallback<T>, this, _1));
+      }
+
       if(timeout == 0 && !m_smt.checkSerializedField(sm_field_name))
       {
         return false;
@@ -165,11 +170,6 @@ namespace shared_memory_interface
             return false;
           }
         }
-      }
-
-      if(m_sub_map.find(ros_field_name) == m_sub_map.end())
-      {
-        m_sub_map[ros_field_name] = m_nh.subscribe<T>(ros_field_name, 1, boost::bind(&SharedMemoryInterfaceROS::blankCallback<T>, this, _1));
       }
 
       std::string serialized_data, md5sum, datatype;

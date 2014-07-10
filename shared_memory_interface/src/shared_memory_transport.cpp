@@ -734,6 +734,11 @@ namespace shared_memory_interface
     }
 
     bool* invalid = segment.find<bool>((field_name + "_invalid").c_str()).first;
+    if(invalid == NULL)
+    {
+      std::cerr << "Companion fields for field " << field_name << " don't exist! Something is horribly wrong!" << std::endl;
+      return false;
+    }
     if(*invalid)
     {
       PRINT_TRACE_EXIT
