@@ -32,8 +32,15 @@
 #ifndef SHARED_MEMORY_TRANSPORT_HPP
 #define SHARED_MEMORY_TRANSPORT_HPP
 
+#include <ros/ros.h>
+#include <ros/serialization.h>
+#include <ros/parameter_adapter.h>
+#include <ros/subscription_callback_helper.h>
+#include <ros/message_deserializer.h>
+
 #include <vector>
 #include <stdio.h>
+#include <algorithm>
 
 #include <boost/interprocess/shared_memory_object.hpp>
 #include <boost/interprocess/mapped_region.hpp>
@@ -62,8 +69,10 @@
 
 #include "shared_memory_utils.h"
 
-#include <unistd.h>
-#include <pwd.h>
+#include <boost/bind.hpp>
+#include <boost/function.hpp>
+#include <boost/thread.hpp>
+#include <boost/type_traits.hpp>
 
 namespace shared_memory_interface
 {
@@ -71,23 +80,33 @@ namespace shared_memory_interface
   class SharedMemoryTransport
   {
   public:
-
-    SharedMemoryTransport(std::string interface_name);
+    SharedMemoryTransport();
     ~SharedMemoryTransport();
 
-    static void waitForMemory(std::string interface_name);
-    static void createMemory(std::string interface_name);
+    static void createMemory(std::string interface_name, unsigned int size);
     static void destroyMemory(std::string interface_name);
 
-    static bool addSerializedField(std::string interface_name, std::string field_name);
-    static bool getSerializedField(std::string interface_name, std::string field_name, std::string& data);
-    static bool setSerializedField(std::string interface_name, std::string field_name, std::string data);
+    void configure(std::string interface_name, std::string field_name);
+    bool createField();
+    bool getData(std::string& data);
+    bool setData(std::string data);
 
-    static bool exists(std::string interface_name, std::string field_name);
-    static bool hasData(std::string interface_name, std::string field_name); //returns true if the field has already been configured
-    static bool awaitNewData(std::string interface_name, std::string field_name, double timeout = -1);
+    bool fieldExists();
+    bool hasData(); //returns true if the field has already been configured
+    bool awaitNewDataPolled(std::string& data, double timeout = -1);
+    bool awaitNewData(std::string& data, double timeout = -1);
 
   private:
+    boost::interprocess::managed_shared_memory segment;
+
+    bool m_initialized;
+    std::string m_field_name;
+    std::string m_buffer_0_name;
+    std::string m_buffer_1_name;
+    std::string m_buffer_selector_name;
+    std::string m_invalid_flag_name;
+    std::string m_condition_name;
+    std::string m_condition_mutex_name;
   };
 
 }

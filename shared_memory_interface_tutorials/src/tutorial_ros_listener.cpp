@@ -30,10 +30,8 @@
  */
 
 #include "ros/ros.h"
-#include "shared_memory_interface/shared_memory_interface_ros.hpp"
+#include "shared_memory_interface/shared_memory_subscriber.hpp"
 #include "std_msgs/String.h"
-
-using namespace shared_memory_interface;
 
 void chatterCallback(std_msgs::String& msg)
 {
@@ -45,8 +43,8 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "listener");
   ros::NodeHandle n;
 
-  SharedMemoryInterfaceROS smi("smi");
-  smi.subscribeSerializedROS<std_msgs::String>("chatter", boost::bind(&chatterCallback, _1));
+  shared_memory_interface::Subscriber<std_msgs::String> sub;
+  sub.subscribe("/chatter", boost::bind(&chatterCallback, _1));
 
   ros::spin();
 

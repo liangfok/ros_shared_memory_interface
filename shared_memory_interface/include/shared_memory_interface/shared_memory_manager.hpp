@@ -29,10 +29,10 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SM_WATCHDOG_H
-#define SM_WATCHDOG_H
+#ifndef SHARED_MEMORY_MANAGER_HPP
+#define SHARED_MEMORY_MANAGER_HPP
 #include <ros/ros.h>
-#include "shared_memory_interface/shared_memory_interface.hpp"
+#include "shared_memory_interface/shared_memory_transport.hpp"
 #include <signal.h>
 
 namespace shared_memory_interface
@@ -47,6 +47,8 @@ namespace shared_memory_interface
   private:
     ros::NodeHandle m_nh;
     double m_loop_rate;
+    std::string m_interface_name;
+    double m_memory_size;
   };
 }
-#endif //SM_WATCHDOG_H
+#endif //SHARED_MEMORY_MANAGER_HPP

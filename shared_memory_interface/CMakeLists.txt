@@ -21,19 +21,19 @@ find_package(PythonLibs REQUIRED)
 include_directories(include ../common/include SYSTEM ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 
 #shared memory library
-add_library(shared_memory_interface src/shared_memory_transport.cpp src/shared_memory_interface.cpp)
-target_link_libraries(shared_memory_interface ${Boost_LIBRARIES} -lrt)
+add_library(shared_memory_transport src/shared_memory_transport.cpp)
+target_link_libraries(shared_memory_transport ${Boost_LIBRARIES} -lrt)
 
 #manager
 rosbuild_add_executable(shared_memory_manager src/shared_memory_manager.cpp)
-target_link_libraries(shared_memory_manager shared_memory_interface)
+target_link_libraries(shared_memory_manager shared_memory_transport)
 
 #echo
 #rosbuild_add_executable(echo src/echo.cpp)
-#target_link_libraries(echo shared_memory_interface ${PYTHON_LIBRARIES})
+#target_link_libraries(echo shared_memory_transport ${PYTHON_LIBRARIES})
 
 #benchmark
-rosbuild_add_executable(benchmark src/benchmark.cpp)
-target_link_libraries(benchmark shared_memory_interface ${PYTHON_LIBRARIES})
-rosbuild_add_executable(benchmark_mirror src/benchmark_mirror.cpp)
-target_link_libraries(benchmark_mirror shared_memory_interface ${PYTHON_LIBRARIES})
+#rosbuild_add_executable(benchmark src/benchmark.cpp)
+#target_link_libraries(benchmark shared_memory_transport ${PYTHON_LIBRARIES})
+#rosbuild_add_executable(benchmark_mirror src/benchmark_mirror.cpp)
+#target_link_libraries(benchmark_mirror shared_memory_transport ${PYTHON_LIBRARIES})

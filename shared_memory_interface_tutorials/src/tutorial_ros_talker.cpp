@@ -30,17 +30,16 @@
  */
 
 #include "ros/ros.h"
-#include "shared_memory_interface/shared_memory_interface_ros.hpp"
+#include "shared_memory_interface/shared_memory_publisher.hpp"
 #include "std_msgs/String.h"
 
-using namespace shared_memory_interface;
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "talker");
   ros::NodeHandle n;
 
-  SharedMemoryInterfaceROS smi("smi");
-  smi.advertiseSerializedROS<std_msgs::String>("chatter");
+  shared_memory_interface::Publisher<std_msgs::String> pub;
+  pub.advertise("/chatter");
 
   ros::Rate loop_rate(10);
   int count = 0;
@@ -53,9 +52,9 @@ int main(int argc, char **argv)
 
     ROS_INFO("%s", msg.data.c_str());
 
-    smi.publishSerializedROS("chatter", msg);
+    pub.publish(msg);
     loop_rate.sleep();
-        ++count;
+    ++count;
   }
 
   return 0;

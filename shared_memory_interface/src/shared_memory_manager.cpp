@@ -33,31 +33,25 @@
 #include <stdio.h>
 #include <pwd.h>
 
-std::string g_interface_name;
-
-void destroySharedMemory(int param)
-{
-  shared_memory_interface::SharedMemoryInterface::destroyMemory(g_interface_name);
-  ros::shutdown();
-}
-
 namespace shared_memory_interface
 {
   SharedMemoryManager::SharedMemoryManager(const ros::NodeHandle& nh) :
       m_nh(nh)
   {
     m_nh.param("loop_rate", m_loop_rate, 10.0);
-    m_nh.param("interface_name", g_interface_name, std::string("smi"));
+    m_nh.param("interface_name", m_interface_name, std::string("smi"));
+    m_nh.param("memory_size", m_memory_size, 512.0 * 1024.0 * 1024.0); //param is double because ros apparently doesn't like unsigned int
+    SharedMemoryTransport::createMemory(m_interface_name, (unsigned int) m_memory_size);
   }
 
   SharedMemoryManager::~SharedMemoryManager()
   {
-    destroySharedMemory(0);
+    SharedMemoryTransport::destroyMemory(m_interface_name);
   }
 
   void SharedMemoryManager::spin()
   {
-    ROS_INFO("SMWatchdog started.");
+    ROS_INFO("SharedMemoryManager started.");
     ros::Rate loop_rate(m_loop_rate);
     while(ros::ok())
     {
@@ -69,18 +63,10 @@ namespace shared_memory_interface
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "watchdog");
+  ros::init(argc, argv, "shared_memory_manager");
   ros::NodeHandle nh("~");
 
   shared_memory_interface::SharedMemoryManager node(nh);
-
-  signal(SIGABRT, destroySharedMemory);
-  signal(SIGFPE, destroySharedMemory);
-  signal(SIGILL, destroySharedMemory);
-  signal(SIGINT, destroySharedMemory);
-  signal(SIGSEGV, destroySharedMemory);
-  signal(SIGTERM, destroySharedMemory);
-
   node.spin();
 
   return 0;

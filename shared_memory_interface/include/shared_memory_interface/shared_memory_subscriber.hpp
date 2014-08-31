@@ -33,19 +33,6 @@
 #define SHARED_MEMORY_SUBSCRIBER_HPP
 
 #include "shared_memory_transport.hpp"
-#include "shared_memory_utils.h"
-
-#include <ros/serialization.h>
-#include <ros/parameter_adapter.h>
-#include <ros/subscription_callback_helper.h>
-#include <ros/message_deserializer.h>
-
-#include <boost/bind.hpp>
-#include <boost/function.hpp>
-#include <boost/thread.hpp>
-#include <boost/type_traits.hpp>
-
-#include <algorithm>
 
 namespace shared_memory_interface
 {
@@ -70,11 +57,12 @@ namespace shared_memory_interface
     {
       m_interface_name = shared_memory_interface_name;
       configureTopicPaths(m_interface_name, topic_name, m_full_ros_topic_path, m_full_topic_path);
+      m_smt.configure(m_interface_name, m_full_topic_path);
 
       if(m_listen_to_rostopic)
       {
         ros::NodeHandle nh("~");
-        m_subscriber = nh.subscribe<T>(m_full_ros_topic_path, 1, boost::bind(&SharedMemoryInterfaceROS::blankCallback<T>, this, _1));
+        m_subscriber = nh.subscribe<T>(m_full_ros_topic_path, 1, boost::bind(&Subscriber<T>::blankCallback, this, _1));
       }
 
       return true;
@@ -83,58 +71,31 @@ namespace shared_memory_interface
     bool subscribe(std::string topic_name, boost::function<void(T&)> callback, std::string shared_memory_interface_name = "smi")
     {
       subscribe(topic_name, shared_memory_interface_name);
-
-      m_callback_thread = new boost::thread(boost::bind(&Subscriber::callbackThreadFunction<T>, this, m_interface_name, m_full_topic_path, callback));
-
+      m_callback_thread = new boost::thread(boost::bind(&Subscriber<T>::callbackThreadFunction, this, &m_smt, callback));
       return true;
     }
 
     bool waitForSerializedROS(T& msg, double timeout = -1)
     {
-      if(!SharedMemoryTransport::awaitNewData(m_interface_name, m_full_topic_path, timeout))
+      std::string serialized_data;
+      if(!m_smt.awaitNewDataPolled(serialized_data, timeout))
       {
         return false;
       }
-      std::string serialized_data, md5sum, datatype;
-      SharedMemoryTransport::getSerializedField(m_interface_name, m_full_topic_path, serialized_data, md5sum, datatype);
-      SharedMemoryTransport::signalProcessed(m_interface_name, m_full_topic_path);
 
       ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
       ros::serialization::deserialize(istream, msg);
       return true;
     }
 
-    bool getCurrentSerializedROS(T& msg, double timeout = -1)
+    bool getCurrentSerializedROS(T& msg)
     {
-      if(!SharedMemoryTransport::checkSerializedField(m_interface_name, m_full_topic_path)) // field doesn't exist yet!
-      {
-        ROS_WARN_THROTTLE(1.0, "Topic %s has not yet been advertised!", m_full_topic_path);
-        if(timeout == 0)
-        {
-          return false;
-        }
-        else
-        {
-          SharedMemoryTransport::awaitNewData(m_interface_name, m_full_topic_path, timeout);
-        }
-      }
-
-      std::string serialized_data, md5sum, datatype;
-      SharedMemoryTransport::getSerializedField(m_interface_name,m_full_topic_path, serialized_data, md5sum, datatype);
-      SharedMemoryTransport::signalProcessed(m_interface_name,m_full_topic_path);
-
-      if(serialized_data.length() == 0)
-      {
-        ROS_WARN_THROTTLE(1.0, "Field %s exists but has never been written to!", m_full_topic_path.c_str());
-        return false;
-      }
-
-      ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
-      ros::serialization::deserialize(istream, msg);
-      return true;
+      return waitForSerializedROS(msg, 0);
     }
 
   protected:
+    SharedMemoryTransport m_smt;
+
     std::string m_interface_name;
     std::string m_full_topic_path;
     std::string m_full_ros_topic_path;
@@ -144,23 +105,21 @@ namespace shared_memory_interface
 
     boost::thread* m_callback_thread;
 
-    template<typename T> //T must be the type of a ros message
-    void callbackThreadFunction(std::string interface_name, std::string full_topic_path, boost::function<void(T&)> callback)
+    void callbackThreadFunction(SharedMemoryTransport* smt, boost::function<void(T&)> callback)
     {
-      SharedMemoryTransport::awaitNewData(interface_name, full_topic_path); //wait for the field to be advertised and populated
-
-      typedef typename ros::ParameterAdapter<T>::Message MessageType;
+      T msg;
+      std::string serialized_data;
+//      typedef typename ros::ParameterAdapter<T>::Message MessageType;
       while(ros::ok())
       {
-        T msg;
-        getCurrentSerializedROS(msg, 0);
+        smt->awaitNewDataPolled(serialized_data);
+        ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
+        ros::serialization::deserialize(istream, msg);
         callback(msg);
         boost::this_thread::interruption_point();
-        SharedMemoryTransport::awaitNewData(interface_name, full_topic_path);
       }
     }
 
-    template<typename T> //T must be the type of a ros message
     void blankCallback(const typename T::ConstPtr& msg)
     {
     }

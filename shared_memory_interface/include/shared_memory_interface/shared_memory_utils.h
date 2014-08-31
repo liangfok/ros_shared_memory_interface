@@ -32,6 +32,9 @@
 #ifndef SHARED_MEMORY_UTILS_H
 #define SHARED_MEMORY_UTILS_H
 
+#include <unistd.h>
+#include <pwd.h>
+
 namespace shared_memory_interface
 {
   typedef boost::interprocess::allocator<char, boost::interprocess::managed_shared_memory::segment_manager> SMCharAllocator;
@@ -60,117 +63,110 @@ namespace shared_memory_interface
     std::replace(full_topic_path.begin(), full_topic_path.end(), '/', '-'); //convert slashes for boost compatibility
   }
 
-
-  inline boost::interprocess::permissions unrestricted()
-  {
-    boost::interprocess::permissions perm;
-    perm.set_unrestricted();
-    return perm;
-  }
-
-  class SMScopedLock
-  {
-  public:
-    SMScopedLock(std::string interface_name, std::string field_name)
-    {
-      assert(interface_name.length() != 0);
-      m_interface_name = interface_name;
-      m_field_name = field_name;
-      m_full_name = getFullName(m_interface_name, m_field_name);
-      try
-      {
-        m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_only, m_full_name.c_str());
-      }
-      catch(...)
-      {
-        std::cerr << "Mutex " << m_full_name << " not found! Creating it!";
-        m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_or_create, m_full_name.c_str(), unrestricted());
-      }
-    }
-
-    ~SMScopedLock()
-    {
-      delete m_mutex;
-    }
-
-    boost::interprocess::named_upgradable_mutex* get()
-    {
-      return m_mutex;
-    }
-
-    static void destroy(std::string interface_name, std::string field_name)
-    {
-      assert(interface_name.length() != 0);
-      boost::interprocess::named_upgradable_mutex::remove(getFullName(interface_name, field_name).c_str());
-    }
-
-    static void create(std::string interface_name, std::string field_name)
-    {
-      assert(interface_name.length() != 0);
-      boost::interprocess::named_upgradable_mutex(boost::interprocess::open_or_create, getFullName(interface_name, field_name).c_str(), unrestricted());
-    }
-
-    static std::string getFullName(std::string& interface_name, std::string field_name)
-    {
-      assert(interface_name.length() != 0);
-      //std::cerr << interface_name << "+" << field_name << "+mutex=" << (interface_name + field_name + "mutex") << std::endl;
-      return (interface_name + "__" + field_name + "__mutex");
-    }
-
-  protected:
-    void repairBrokenLock()
-    {
-      std::cerr << "SharedMemoryTransport: Found broken lock " << m_full_name << "! Repairing!" << std::endl;
-      assert(m_interface_name.length() != 0);
-      destroy(m_interface_name, m_field_name);
-      create(m_interface_name, m_field_name);
-      delete m_mutex;
-      m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_only, m_full_name.c_str());
-    }
-
-    boost::interprocess::named_upgradable_mutex* m_mutex;
-    std::string m_interface_name;
-    std::string m_field_name;
-    std::string m_full_name;
-  };
-
-  class SMScopedReaderLock: public SMScopedLock
-  {
-  public:
-    SMScopedReaderLock(std::string interface_name, std::string field_name, double timeout_duration = 1.0) :
-        SMScopedLock(interface_name, field_name)
-    {
-      boost::posix_time::ptime timeout = boost::get_system_time() + boost::posix_time::milliseconds(timeout_duration * 1000);
-      if(!m_mutex->timed_lock_sharable(timeout))
-      {
-        repairBrokenLock();
-      }
-    }
-
-    ~SMScopedReaderLock()
-    {
-      m_mutex->unlock_sharable();
-    }
-  };
-
-  class SMScopedWriterLock: public SMScopedLock
-  {
-  public:
-    SMScopedWriterLock(std::string interface_name, std::string field_name, double timeout_duration = 1.0) :
-        SMScopedLock(interface_name, field_name)
-    {
-      boost::posix_time::ptime timeout = boost::get_system_time() + boost::posix_time::milliseconds(timeout_duration * 1000);
-      if(!m_mutex->timed_lock(timeout))
-      {
-        repairBrokenLock();
-      }
-    }
-
-    ~SMScopedWriterLock()
-    {
-      m_mutex->unlock();
-    }
-  };
+//
+//  class SMScopedLock
+//  {
+//  public:
+//    SMScopedLock(std::string interface_name, std::string field_name)
+//    {
+//      assert(interface_name.length() != 0);
+//      m_interface_name = interface_name;
+//      m_field_name = field_name;
+//      m_full_name = getFullName(m_interface_name, m_field_name);
+//      try
+//      {
+//        m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_only, m_full_name.c_str());
+//      }
+//      catch(...)
+//      {
+//        std::cerr << "Mutex " << m_full_name << " not found! Creating it!";
+//        m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_or_create, m_full_name.c_str(), unrestricted());
+//      }
+//    }
+//
+//    ~SMScopedLock()
+//    {
+//      delete m_mutex;
+//    }
+//
+//    boost::interprocess::named_upgradable_mutex* get()
+//    {
+//      return m_mutex;
+//    }
+//
+//    static void destroy(std::string interface_name, std::string field_name)
+//    {
+//      assert(interface_name.length() != 0);
+//      boost::interprocess::named_upgradable_mutex::remove(getFullName(interface_name, field_name).c_str());
+//    }
+//
+//    static void create(std::string interface_name, std::string field_name)
+//    {
+//      assert(interface_name.length() != 0);
+//      boost::interprocess::named_upgradable_mutex(boost::interprocess::open_or_create, getFullName(interface_name, field_name).c_str(), unrestricted());
+//    }
+//
+//    static std::string getFullName(std::string& interface_name, std::string field_name)
+//    {
+//      assert(interface_name.length() != 0);
+//      //std::cerr << interface_name << "+" << field_name << "+mutex=" << (interface_name + field_name + "mutex") << std::endl;
+//      return (interface_name + "__" + field_name + "__mutex");
+//    }
+//
+//  protected:
+//    void repairBrokenLock()
+//    {
+//      std::cerr << "SharedMemoryTransport: Found broken lock " << m_full_name << "! Repairing!" << std::endl;
+//      assert(m_interface_name.length() != 0);
+//      destroy(m_interface_name, m_field_name);
+//      create(m_interface_name, m_field_name);
+//      delete m_mutex;
+//      m_mutex = new boost::interprocess::named_upgradable_mutex(boost::interprocess::open_only, m_full_name.c_str());
+//    }
+//
+//    boost::interprocess::named_upgradable_mutex* m_mutex;
+//    std::string m_interface_name;
+//    std::string m_field_name;
+//    std::string m_full_name;
+//  };
+//
+//  class SMScopedReaderLock: public SMScopedLock
+//  {
+//  public:
+//    SMScopedReaderLock(std::string interface_name, std::string field_name, double timeout_duration = 1.0) :
+//        SMScopedLock(interface_name, field_name)
+//    {
+//      boost::posix_time::ptime timeout = boost::get_system_time() + boost::posix_time::milliseconds(timeout_duration * 1000);
+//      if(!m_mutex->timed_lock_sharable(timeout))
+//      {
+//        repairBrokenLock();
+//      }
+//    }
+//
+//    ~SMScopedReaderLock()
+//    {
+//      m_mutex->unlock_sharable();
+//    }
+//  };
+//
+//  class SMScopedWriterLock: public SMScopedLock
+//  {
+//  public:
+//    SMScopedWriterLock(std::string interface_name, std::string field_name, double timeout_duration = 1.0) :
+//        SMScopedLock(interface_name, field_name)
+//    {
+//      boost::posix_time::ptime timeout = boost::get_system_time() + boost::posix_time::milliseconds(timeout_duration * 1000);
+//      if(!m_mutex->timed_lock(timeout))
+//      {
+//        repairBrokenLock();
+//      }
+//    }
+//
+//    ~SMScopedWriterLock()
+//    {
+//      m_mutex->unlock();
+//    }
+//  };
 }
 
 #endif //SHARED_MEMORY_UTILS_H
