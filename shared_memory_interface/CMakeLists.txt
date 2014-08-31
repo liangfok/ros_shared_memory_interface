@@ -24,9 +24,9 @@ include_directories(include ../common/include SYSTEM ${Boost_INCLUDE_DIRS} ${PYT
 add_library(shared_memory_interface src/shared_memory_transport.cpp src/shared_memory_interface.cpp)
 target_link_libraries(shared_memory_interface ${Boost_LIBRARIES} -lrt)
 
-#watchdog (shared memory cleanup tool)
-rosbuild_add_executable(watchdog src/watchdog.cpp)
-target_link_libraries(watchdog shared_memory_interface)
+#manager
+rosbuild_add_executable(shared_memory_manager src/shared_memory_manager.cpp)
+target_link_libraries(shared_memory_manager shared_memory_interface)
 
 #echo
 #rosbuild_add_executable(echo src/echo.cpp)

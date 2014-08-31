@@ -57,6 +57,11 @@
 #include <boost/interprocess/exceptions.hpp>
 #include <boost/thread/thread_time.hpp>
 
+#include <boost/interprocess/sync/interprocess_mutex.hpp>
+#include <boost/interprocess/sync/interprocess_condition.hpp>
+
+#include "shared_memory_utils.h"
+
 #include <unistd.h>
 #include <pwd.h>
 
@@ -70,55 +75,19 @@ namespace shared_memory_interface
     SharedMemoryTransport(std::string interface_name);
     ~SharedMemoryTransport();
 
+    static void waitForMemory(std::string interface_name);
+    static void createMemory(std::string interface_name);
     static void destroyMemory(std::string interface_name);
 
-    //FloatingPoint=> floating point
-    //StringVector=> string vector
+    static bool addSerializedField(std::string interface_name, std::string field_name);
+    static bool getSerializedField(std::string interface_name, std::string field_name, std::string& data);
+    static bool setSerializedField(std::string interface_name, std::string field_name, std::string data);
 
-    bool addFloatingPointMatrixField(std::string field_name, unsigned long rows, unsigned long cols);
-
-    bool addStringVectorField(std::string field_name, unsigned long length);
-
-    bool addSerializedField(std::string field_name, std::string md5sum, std::string datatype);
-
-    bool getFloatingPointData(std::string field_name, unsigned long joint_idx, double& data);
-
-    bool setFloatingPointData(std::string field_name, unsigned long joint_idx, double value);
-
-    //TODO: return row stride as well?
-    bool getFloatingPointField(std::string field_name, std::vector<double>& field_data_local);
-
-    bool setFloatingPointField(std::string field_name, std::vector<double>& field_data_local);
-
-    bool checkFloatingPointField(std::string field_name); //returns true if the field has already been configured
-
-    bool getStringVectorField(std::string field_name, std::vector<std::string>& names_local);
-
-    bool setStringVectorField(std::string field_name, std::vector<std::string>& names_local);
-
-    bool checkStringVectorField(std::string field_name); //returns true if the field has already been configured
-
-    bool getSerializedField(std::string field_name, std::string& data, std::string& md5sum, std::string& datatype);
-
-    bool setSerializedField(std::string field_name, std::string data, std::string md5sum, std::string datatype);
-
-    bool checkSerializedField(std::string field_name); //returns true if the field has already been configured
-
-    bool hasConnections();
-
-    bool hasNewData(std::string field_name);
-
-    bool awaitNewData(std::string field_name, double timeout = -1);
-
-    bool signalAvailable(std::string field_name);
-
-    bool signalProcessed(std::string field_name);
+    static bool exists(std::string interface_name, std::string field_name);
+    static bool hasData(std::string interface_name, std::string field_name); //returns true if the field has already been configured
+    static bool awaitNewData(std::string interface_name, std::string field_name, double timeout = -1);
 
   private:
-//    boost::interprocess::named_upgradable_mutex* m_mutex;
-    std::string m_interface_name;
-//    std::string m_memory_mutex_name;
-    std::string m_data_name;
   };
 
 }

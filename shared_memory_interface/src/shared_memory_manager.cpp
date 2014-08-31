@@ -29,24 +29,59 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SM_WATCHDOG_H
-#define SM_WATCHDOG_H
-#include <ros/ros.h>
-#include "shared_memory_interface/shared_memory_interface.hpp"
-#include <signal.h>
+#include "shared_memory_interface/shared_memory_manager.hpp"
+#include <stdio.h>
+#include <pwd.h>
+
+std::string g_interface_name;
+
+void destroySharedMemory(int param)
+{
+  shared_memory_interface::SharedMemoryInterface::destroyMemory(g_interface_name);
+  ros::shutdown();
+}
 
 namespace shared_memory_interface
 {
-  class SMWatchdog
+  SharedMemoryManager::SharedMemoryManager(const ros::NodeHandle& nh) :
+      m_nh(nh)
   {
-  public:
-    SMWatchdog(const ros::NodeHandle& nh);
-    ~SMWatchdog();
-    void spin();
+    m_nh.param("loop_rate", m_loop_rate, 10.0);
+    m_nh.param("interface_name", g_interface_name, std::string("smi"));
+  }
 
-  private:
-    ros::NodeHandle m_nh;
-    double m_loop_rate;
-  };
+  SharedMemoryManager::~SharedMemoryManager()
+  {
+    destroySharedMemory(0);
+  }
+
+  void SharedMemoryManager::spin()
+  {
+    ROS_INFO("SMWatchdog started.");
+    ros::Rate loop_rate(m_loop_rate);
+    while(ros::ok())
+    {
+      ros::spinOnce();
+      loop_rate.sleep();
+    }
+  }
 }
-#endif //SM_WATCHDOG_H
+
+int main(int argc, char **argv)
+{
+  ros::init(argc, argv, "watchdog");
+  ros::NodeHandle nh("~");
+
+  shared_memory_interface::SharedMemoryManager node(nh);
+
+  signal(SIGABRT, destroySharedMemory);
+  signal(SIGFPE, destroySharedMemory);
+  signal(SIGILL, destroySharedMemory);
+  signal(SIGINT, destroySharedMemory);
+  signal(SIGSEGV, destroySharedMemory);
+  signal(SIGTERM, destroySharedMemory);
+
+  node.spin();
+
+  return 0;
+}
