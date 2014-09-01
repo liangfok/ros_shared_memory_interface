@@ -7,5 +7,7 @@ shmmax_size=$1
 page_size=`getconf PAGESIZE`
 shmmni=`cat /proc/sys/kernel/shmmni`
 shmall_size=$(($shmmax_size*$shmmni/$page_size/16))
+sudo bash -c "echo $shmmax_size > /proc/sys/kernel/shmmax"
+sudo bash -c "echo $shmall_size > /proc/sys/kernel/shmall"
 sudo bash -c "echo \"kernel.shmmax=$shmmax_size\" >> /etc/sysctl.conf"
 sudo bash -c "echo \"kernel.shmall=$shmall_size\" >> /etc/sysctl.conf"
