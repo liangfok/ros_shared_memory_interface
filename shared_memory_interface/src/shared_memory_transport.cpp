@@ -67,7 +67,7 @@ namespace shared_memory_interface
       shmmax_file_read.close();
       if(shmmax < size)
       {
-        ROS_ID_WARN_STREAM("Available system shared memory (" << shmmax << ") was smaller than the requested size (" << size << ")! Attempting to increase it (may need sudo). To make the change persistent: `rosrun shared_memory_interface set_shared_memory_size_persistent " << size << "`");
+        ROS_ID_WARN_STREAM("Available system shared memory (" << shmmax << ") was smaller than the requested size (" << size << ")! Attempting to increase it (may need sudo). To make the change persist across reboots: `rosrun shared_memory_interface set_shared_memory_size_persistent " << size << "`");
 
         std::stringstream ss;
         ss << ros::package::getPath("shared_memory_interface") << "/scripts/set_shared_memory_size " << size;
@@ -86,7 +86,7 @@ namespace shared_memory_interface
         }
         else
         {
-          ROS_ID_ERROR_STREAM("Failed to increase system shared memory! You may need to do it manually.");
+          ROS_ID_WARN_STREAM("Failed to increase system shared memory, and will continue using the current maximum " << shmmax << "! If you really need more space, you may need to increase it manually (`rosrun shared_memory_interface set_shared_memory_size_persistent " << size << "` or `rosrun shared_memory_interface set_shared_memory_size " << size << ").");
           size = shmmax;
         }
       }

@@ -47,21 +47,11 @@
 #include <boost/interprocess/shared_memory_object.hpp>
 #include <boost/interprocess/mapped_region.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
-#include <boost/interprocess/sync/named_mutex.hpp>
-#include <boost/interprocess/sync/named_upgradable_mutex.hpp>
 #include <boost/interprocess/sync/scoped_lock.hpp>
-#include <boost/interprocess/sync/sharable_lock.hpp>
-#include <boost/interprocess/sync/upgradable_lock.hpp>
-#include <boost/thread/locks.hpp>
-
-#include <boost/interprocess/detail/atomic.hpp>
-
-#include <shared_memory_interface/named_upgradable_condition.hpp>
 
 #include <boost/interprocess/containers/vector.hpp>
 #include <boost/interprocess/containers/string.hpp>
 #include <boost/interprocess/allocators/allocator.hpp>
-#include <boost/interprocess/managed_shared_memory.hpp>
 
 #include <boost/interprocess/exceptions.hpp>
 #include <boost/thread/thread_time.hpp>
@@ -69,16 +59,15 @@
 #include <boost/interprocess/sync/interprocess_mutex.hpp>
 #include <boost/interprocess/sync/interprocess_condition.hpp>
 
-#include "shared_memory_utils.h"
-
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/thread.hpp>
 #include <boost/type_traits.hpp>
 
+#include "shared_memory_utils.h"
+
 namespace shared_memory_interface
 {
-  typedef boost::interprocess::interprocess_upgradable_mutex upgradable_mutex_type;
   class SharedMemoryTransport
   {
   public:
