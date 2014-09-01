@@ -1,4 +1,8 @@
 #!/bin/bash
+if test "$#" -ne 1; then
+    echo "Specify maximum number of bytes for shared memory"
+    exit 0
+fi
 shmmax_size=$1
 page_size=`getconf PAGESIZE`
 shmmni=`cat /proc/sys/kernel/shmmni`
