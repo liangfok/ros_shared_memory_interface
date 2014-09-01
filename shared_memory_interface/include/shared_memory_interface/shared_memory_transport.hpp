@@ -37,10 +37,12 @@
 #include <ros/parameter_adapter.h>
 #include <ros/subscription_callback_helper.h>
 #include <ros/message_deserializer.h>
+#include <ros/package.h>
 
 #include <vector>
 #include <stdio.h>
 #include <algorithm>
+#include <stdlib.h>
 
 #include <boost/interprocess/shared_memory_object.hpp>
 #include <boost/interprocess/mapped_region.hpp>
@@ -85,6 +87,7 @@ namespace shared_memory_interface
 
     static void createMemory(std::string interface_name, unsigned int size);
     static void destroyMemory(std::string interface_name);
+    bool shutdownRequired();
 
     void configure(std::string interface_name, std::string field_name);
     bool createField();
@@ -107,6 +110,7 @@ namespace shared_memory_interface
     std::string m_invalid_flag_name;
     std::string m_condition_name;
     std::string m_condition_mutex_name;
+    std::string m_exists_flag_name;
   };
 
 }

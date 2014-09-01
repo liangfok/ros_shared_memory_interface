@@ -1,0 +1,3 @@
+#!/bin/bash
+size=$1
+sudo bash -c "echo $size > /proc/sys/kernel/shmmax"

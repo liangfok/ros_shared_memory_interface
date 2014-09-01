@@ -37,6 +37,12 @@ namespace shared_memory_interface
 #define PRINT_TRACE_ENTER if(TRACE)std::cerr<<__func__<<std::endl;
 #define PRINT_TRACE_EXIT if(TRACE)std::cerr<<"/"<<__func__<<std::endl;
 
+#define ROS_ID_DEBUG_THROTTLED_STREAM(...) ROS_DEBUG_STREAM_THROTTLE(1.0, "SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_INFO_THROTTLED_STREAM(...) ROS_INFO_STREAM_THROTTLE(1.0, "SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_INFO_STREAM(...) ROS_INFO_STREAM("SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_WARN_STREAM(...) ROS_WARN_STREAM("SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_ERROR_STREAM(...) ROS_ERROR_STREAM("SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
+
   boost::interprocess::permissions unrestricted()
   {
     boost::interprocess::permissions perm;
@@ -51,38 +57,75 @@ namespace shared_memory_interface
     shmmax_file_read.open("/proc/sys/kernel/shmmax");
     if(!shmmax_file_read.is_open())
     {
-      std::cerr << "SharedMemoryTransport: ERROR: System shared memory maximum file not found at /proc/sys/kernel/shmmax. System may or may not have sufficient shared memory available. Are you using Ubuntu 12.04?" << std::endl;
+      ROS_ID_ERROR_STREAM("System shared memory maximum file not found at /proc/sys/kernel/shmmax. System may or may not have sufficient shared memory available. Are you using Ubuntu 12.04?");
     }
-    std::string shmmax_string;
-    std::getline(shmmax_file_read, shmmax_string);
-    shmmax_file_read.close();
-    unsigned int shmmax = atof(shmmax_string.c_str());
-    if(shmmax < size)
+    else
     {
-      std::cerr << "SharedMemoryTransport: Available system shared memory was too small. Attempting to correct...";
-      std::ofstream shmmax_file_write;
-      shmmax_file_write.open("/proc/sys/kernel/shmmax");
-      shmmax_file_write << size;
-      shmmax_file_write.close();
+      std::string shmmax_string;
+      std::getline(shmmax_file_read, shmmax_string);
+      unsigned int shmmax = atof(shmmax_string.c_str());
+      shmmax_file_read.close();
+      if(shmmax < size)
+      {
+        ROS_ID_WARN_STREAM("Available system shared memory was too small! Attempting to increase it (may need sudo)...");
+
+        std::stringstream ss;
+        ss << ros::package::getPath("shared_memory_interface") << "/scripts/set_shared_memory_size " << size;
+        int unused = system(ss.str().c_str());
+        unused = unused; //silly warnings are silly
+
+        //check to see if we actually changed it
+        shmmax_file_read.open("/proc/sys/kernel/shmmax");
+        std::getline(shmmax_file_read, shmmax_string);
+        shmmax = atof(shmmax_string.c_str());
+        shmmax_file_read.close();
+
+        if(shmmax == size)
+        {
+          ROS_ID_INFO_STREAM("Successfully increased system shared memory!");
+        }
+        else
+        {
+          ROS_ID_ERROR_STREAM("Failed to increase system shared memory! You may need to do it manually.");
+          size = shmmax;
+        }
+      }
+
     }
 
     //try to create the memory space
     try
     {
-      std::cerr << "SharedMemoryTransport: Creating shared memory space " << interface_name << ".." << std::endl;
+      ROS_ID_INFO_STREAM("Creating shared memory space " << interface_name << "..");
       boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::create_only, interface_name.c_str(), size, NULL, unrestricted());
-      std::cerr << "SharedMemoryTransport: Created " << interface_name << " space!" << std::endl;
+      ROS_ID_INFO_STREAM("Created " << interface_name << " space!");
+
+      segment.construct<bool>("shutdown_required")(false);
     }
     catch(boost::interprocess::interprocess_exception &ex) //shared memory hasn't been created yet, so we'll make it
     {
-      std::cerr << "SharedMemoryTransport: ERROR: shared memory space already existed!";
+      ROS_ID_WARN_STREAM("Shared memory space already existed!");
     }
   }
 
+  //cerr used below because ROS doesn't work after ros::shutdown has happened.
   void SharedMemoryTransport::destroyMemory(std::string interface_name)
   {
-    std::cerr << "SharedMemoryTransport: Destroying shared memory space " << interface_name << "." << std::endl;
+    std::cerr << "SharedMemoryTransport(" << getpid() << "): " << "Destroying shared memory space " << interface_name << "..." << std::endl;
+//    try
+//    {
+//      boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, interface_name.c_str());
+//      *segment.find<bool>("shutdown_required").first = true; //inform the other processes that the shared memory needs to close
+//    }
+//    catch(boost::interprocess::interprocess_exception &ex)
+//    {
+//      std::cerr << ex.what() << std::endl;
+//    }
     boost::interprocess::shared_memory_object::remove(interface_name.c_str());
+    //NOTE: shared memory will be unlinked, not destroyed. Anyone who already has the space mapped will still be able to run,
+    //but new processes will not be able to open the space again. The memory space will only be destroyed when the last
+    //managed_shared_memory object is destroyed.
+    std::cerr << "SharedMemoryTransport(" << getpid() << "): " << "Shared memory space successfully destroyed." << std::endl;
   }
 
   SharedMemoryTransport::SharedMemoryTransport()
@@ -94,20 +137,32 @@ namespace shared_memory_interface
   {
   }
 
+  bool SharedMemoryTransport::shutdownRequired()
+  {
+    return *segment.find<bool>("shutdown_required").first;
+  }
+
   void SharedMemoryTransport::configure(std::string interface_name, std::string field_name)
   {
+    ROS_ID_INFO_STREAM("Configuring " << interface_name << " space.");
     while(ros::ok()) //there's probably a much less silly way to do this...
     {
       try
       {
         segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, interface_name.c_str());
-        std::cerr << "SharedMemoryTransport: Connected to " << interface_name << " space." << std::endl;
+        ROS_ID_INFO_STREAM("Connected to " << interface_name << " space.");
         break;
       }
       catch(boost::interprocess::interprocess_exception &ex) //shared memory hasn't been created yet, so we'll make it
       {
-        std::cerr << "SharedMemoryTransport: Waiting for shared memory space " << interface_name << " to become available (is the manager running?)..." << std::endl;
+        ROS_ID_INFO_THROTTLED_STREAM("Waiting for shared memory space " << interface_name << " to become available (is the manager running?)...");
       }
+//      boost::this_thread::interruption_point();
+    }
+
+    while(ros::ok() && (segment.find<bool>("shutdown_required").first == NULL))
+    {
+      ROS_ID_INFO_THROTTLED_STREAM("Waiting for shared memory space " << interface_name << " to become available (is the manager running?)...");
     }
 
     m_field_name = field_name;
@@ -117,7 +172,11 @@ namespace shared_memory_interface
     m_invalid_flag_name = m_field_name + "_invalid";
     m_condition_name = m_field_name + "_condition";
     m_condition_mutex_name = m_field_name + "_condition_mutex";
+    m_exists_flag_name = m_field_name + "_exists";
+
     m_initialized = true; //TODO: check names initialized everywhere
+
+    ROS_ID_INFO_STREAM("Configuration complete!");
   }
 
   bool SharedMemoryTransport::createField()
@@ -125,13 +184,14 @@ namespace shared_memory_interface
     PRINT_TRACE_ENTER
     if(fieldExists()) //check to see if someone else created the field
     {
+      ROS_ID_WARN_STREAM("Using existing shared memory field for " << m_field_name);
       PRINT_TRACE_EXIT
       return true;
     }
 
     try
     {
-      std::cerr << "Creating new shared memory field for " << m_field_name << std::endl;
+      ROS_ID_INFO_STREAM("Creating new shared memory field for " << m_field_name);
       segment.construct<SMString>(m_buffer_0_name.c_str())(segment.get_segment_manager());
       segment.construct<SMString>(m_buffer_1_name.c_str())(segment.get_segment_manager());
 
@@ -140,10 +200,12 @@ namespace shared_memory_interface
 
 //      segment.construct<boost::interprocess::interprocess_condition>(m_condition_name.c_str())(segment.get_segment_manager());
 //      segment.construct<boost::interprocess::interprocess_mutex>(m_condition_mutex_name.c_str())(segment.get_segment_manager());
+
+      segment.construct<bool>(m_exists_flag_name.c_str())(true); //once we construct this, everyone will assume the field exists
     }
     catch(boost::interprocess::interprocess_exception &ex)
     {
-      std::cerr << "SharedMemoryTransport: Exception " << ex.what() << " thrown while creating new field \"" << m_field_name << "\"!" << std::endl;
+      ROS_ID_INFO_STREAM("Exception " << ex.what() << " thrown while creating new field \"" << m_field_name << "\"!");
       PRINT_TRACE_EXIT
       return false;
     }
@@ -180,6 +242,7 @@ namespace shared_memory_interface
       {
         //someone wrote to the buffer while we were reading it! try again...
         //TODO: add counter to detect starvation?
+        boost::this_thread::interruption_point();
         continue;
       }
 
@@ -215,12 +278,18 @@ namespace shared_memory_interface
 
   bool SharedMemoryTransport::fieldExists()
   {
-    return m_initialized && ((segment.find<SMString>(m_buffer_0_name.c_str()).first != NULL) && (segment.find<SMString>(m_buffer_1_name.c_str()).first != NULL));
+    PRINT_TRACE_ENTER
+    bool exists = m_initialized && (segment.find<bool>(m_exists_flag_name.c_str()).first != NULL);
+    PRINT_TRACE_EXIT
+    return exists;
   }
 
   bool SharedMemoryTransport::hasData()
   {
-    return fieldExists() && !(*segment.find<bool>(m_invalid_flag_name.c_str()).first);
+    PRINT_TRACE_ENTER
+    bool has_data = fieldExists() && !(*segment.find<bool>(m_invalid_flag_name.c_str()).first);
+    PRINT_TRACE_EXIT
+    return has_data;
   }
 
   bool SharedMemoryTransport::awaitNewDataPolled(std::string& data, double timeout)
@@ -228,7 +297,7 @@ namespace shared_memory_interface
     PRINT_TRACE_ENTER
     while(!hasData()) //wait for the field to at least have something
     {
-      ROS_DEBUG_THROTTLE(1.0, "Waiting for field %s to become valid.", m_field_name.c_str());
+      ROS_ID_DEBUG_THROTTLED_STREAM("Waiting for field " << m_field_name << " to become valid.");
       boost::this_thread::interruption_point();
     }
 
@@ -245,15 +314,15 @@ namespace shared_memory_interface
       {
         if(timeout < 0)
         {
-          ROS_DEBUG_THROTTLE(1.0, "Waiting for new data in field %s.", m_field_name.c_str());
+          ROS_ID_DEBUG_THROTTLED_STREAM("Waiting for new data in field " << m_field_name);
         }
         else if(boost::get_system_time() < timeout_time)
         {
-          ROS_DEBUG_THROTTLE(1.0, "Waiting for new data in field %s with timeout %g.", m_field_name.c_str(), timeout);
+          ROS_ID_DEBUG_THROTTLED_STREAM("Waiting for new data in field " << m_field_name << " with timeout " << timeout);
         }
         else
         {
-          ROS_DEBUG_THROTTLE(1.0, "Timed out while waiting for new data in field %s with timeout %g!", m_field_name.c_str(), timeout);
+          ROS_ID_INFO_STREAM("Timed out while waiting for new data in field " << m_field_name << " with timeout " << timeout << "!");
           return false;
         }
         boost::this_thread::interruption_point();
@@ -267,7 +336,7 @@ namespace shared_memory_interface
   {
     PRINT_TRACE_ENTER
 
-    ROS_ERROR("AWAIT NEW DATA DOESN'T WORK YET! USE THE POLLED VERSION FOR NOW!");
+    ROS_ID_ERROR_STREAM("AWAIT NEW DATA DOESN'T WORK YET! USE THE POLLED VERSION FOR NOW!");
     PRINT_TRACE_EXIT
     return false;
 
