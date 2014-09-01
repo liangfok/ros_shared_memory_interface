@@ -109,13 +109,19 @@ namespace shared_memory_interface
     {
       T msg;
       std::string serialized_data;
-//      typedef typename ros::ParameterAdapter<T>::Message MessageType;
       while(ros::ok())
       {
-        smt->awaitNewDataPolled(serialized_data);
-        ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
-        ros::serialization::deserialize(istream, msg);
-        callback(msg);
+        try
+        {
+          smt->awaitNewDataPolled(serialized_data);
+          ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
+          ros::serialization::deserialize(istream, msg);
+          callback(msg);
+        }
+        catch(ros::serialization::StreamOverrunException& ex)
+        {
+          ROS_ERROR("Deserialization failed! The string was:\n%s", serialized_data.c_str());
+        }
         boost::this_thread::interruption_point();
       }
     }

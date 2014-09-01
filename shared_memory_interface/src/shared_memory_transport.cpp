@@ -52,6 +52,7 @@ namespace shared_memory_interface
 
   void SharedMemoryTransport::createMemory(std::string interface_name, unsigned int size)
   {
+    PRINT_TRACE_ENTER
     //make sure the system will let us create a memory space of the desired size
     std::ifstream shmmax_file_read;
     shmmax_file_read.open("/proc/sys/kernel/shmmax");
@@ -106,11 +107,13 @@ namespace shared_memory_interface
     {
       ROS_ID_WARN_STREAM("Shared memory space already existed!");
     }
+    PRINT_TRACE_EXIT
   }
 
   //cerr used below because ROS doesn't work after ros::shutdown has happened.
   void SharedMemoryTransport::destroyMemory(std::string interface_name)
   {
+    PRINT_TRACE_ENTER
     std::cerr << "SharedMemoryTransport(" << getpid() << "): " << "Destroying shared memory space " << interface_name << "..." << std::endl;
 //    try
 //    {
@@ -126,6 +129,7 @@ namespace shared_memory_interface
     //but new processes will not be able to open the space again. The memory space will only be destroyed when the last
     //managed_shared_memory object is destroyed.
     std::cerr << "SharedMemoryTransport(" << getpid() << "): " << "Shared memory space successfully destroyed." << std::endl;
+    PRINT_TRACE_EXIT
   }
 
   SharedMemoryTransport::SharedMemoryTransport()
@@ -139,11 +143,15 @@ namespace shared_memory_interface
 
   bool SharedMemoryTransport::shutdownRequired()
   {
-    return *segment.find<bool>("shutdown_required").first;
+    PRINT_TRACE_ENTER
+    bool shutdown_required = *segment.find<bool>("shutdown_required").first;
+    PRINT_TRACE_EXIT
+    return shutdown_required;
   }
 
   void SharedMemoryTransport::configure(std::string interface_name, std::string field_name)
   {
+    PRINT_TRACE_ENTER
     ROS_ID_INFO_STREAM("Configuring " << interface_name << " space.");
     while(ros::ok()) //there's probably a much less silly way to do this...
     {
@@ -177,6 +185,7 @@ namespace shared_memory_interface
     m_initialized = true; //TODO: check names initialized everywhere
 
     ROS_ID_INFO_STREAM("Configuration complete!");
+    PRINT_TRACE_EXIT
   }
 
   bool SharedMemoryTransport::createField()
@@ -323,11 +332,13 @@ namespace shared_memory_interface
         else
         {
           ROS_ID_INFO_STREAM("Timed out while waiting for new data in field " << m_field_name << " with timeout " << timeout << "!");
+          PRINT_TRACE_EXIT
           return false;
         }
         boost::this_thread::interruption_point();
       }
 
+      PRINT_TRACE_EXIT
       return getData(data);
     }
   }
