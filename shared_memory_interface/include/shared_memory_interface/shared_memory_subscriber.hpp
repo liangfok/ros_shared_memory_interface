@@ -75,8 +75,13 @@ namespace shared_memory_interface
       return true;
     }
 
-    bool waitForSerializedROS(T& msg, double timeout = -1)
+    bool waitForMessage(T& msg, double timeout = -1)
     {
+      if(!m_smt.initialized())
+      {
+        ROS_WARN("Tried to waitForMessage on an invalid shared memory transport!");
+        return false;
+      }
       std::string serialized_data;
       if(!m_smt.awaitNewDataPolled(serialized_data, timeout))
       {
@@ -88,9 +93,14 @@ namespace shared_memory_interface
       return true;
     }
 
-    bool getCurrentSerializedROS(T& msg)
+    bool getCurrentMessage(T& msg)
     {
-      return waitForSerializedROS(msg, 0);
+      if(!m_smt.initialized())
+      {
+        ROS_WARN("Tried to getCurrentMessage on an invalid shared memory transport!");
+        return false;
+      }
+      return waitForMessage(msg, 0);
     }
 
   protected:
@@ -113,10 +123,17 @@ namespace shared_memory_interface
       {
         try
         {
-          smt->awaitNewDataPolled(serialized_data);
-          ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
-          ros::serialization::deserialize(istream, msg);
-          callback(msg);
+          if(!smt->initialized())
+          {
+            ROS_WARN("Shared memory transport was shut down. Stopping callback thread!");
+            return;
+          }
+          if(smt->awaitNewDataPolled(serialized_data))
+          {
+            ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
+            ros::serialization::deserialize(istream, msg);
+            callback(msg);
+          }
         }
         catch(ros::serialization::StreamOverrunException& ex)
         {

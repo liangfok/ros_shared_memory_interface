@@ -76,8 +76,8 @@ namespace shared_memory_interface
 
     static void createMemory(std::string interface_name, unsigned int size);
     static void destroyMemory(std::string interface_name);
-    bool shutdownRequired();
 
+    bool initialized();
     void configure(std::string interface_name, std::string field_name);
     bool createField();
     bool getData(std::string& data);
@@ -89,7 +89,9 @@ namespace shared_memory_interface
     bool awaitNewData(std::string& data, double timeout = -1);
 
   private:
-    boost::interprocess::managed_shared_memory segment;
+    boost::interprocess::managed_shared_memory* segment;
+    boost::thread* m_watchdog_thread;
+    void watchdogFunction();
 
     bool m_initialized;
     std::string m_field_name;

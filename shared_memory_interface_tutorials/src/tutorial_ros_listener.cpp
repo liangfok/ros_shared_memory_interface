@@ -47,7 +47,6 @@ int main(int argc, char **argv)
   sub.subscribe("/chatter", boost::bind(&chatterCallback, _1));
 
   ros::spin();
-
   return 0;
 }
 

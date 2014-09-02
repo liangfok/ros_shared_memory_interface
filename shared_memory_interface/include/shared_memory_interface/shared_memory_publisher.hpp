@@ -65,6 +65,11 @@ namespace shared_memory_interface
 
     bool publish(T& data)
     {
+      if(!m_smt.initialized())
+      {
+        ROS_WARN("Tried to publish on an invalid shared memory transport!");
+        return false;
+      }
       std::string serialized;
 
       unsigned long oserial_size = ros::serialization::serializationLength(data);
