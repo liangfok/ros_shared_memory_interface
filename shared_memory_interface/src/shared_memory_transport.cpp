@@ -94,7 +94,6 @@ namespace shared_memory_interface
           size = shmmax;
         }
       }
-
     }
 
     //try to create the memory space
@@ -202,9 +201,9 @@ namespace shared_memory_interface
     }
 
     m_field_name = field_name;
-    m_buffer_0_name = m_field_name + "_0";
-    m_buffer_1_name = m_field_name + "_1";
-    m_buffer_selector_name = m_field_name + "_buffer_selector";
+    m_even_buffer_name = m_field_name + "_even";
+    m_odd_buffer_name = m_field_name + "_odd";
+    m_buffer_sequence_id_name = m_field_name + "_buffer_sequence_id";
     m_invalid_flag_name = m_field_name + "_invalid";
     m_condition_name = m_field_name + "_condition";
     m_condition_mutex_name = m_field_name + "_condition_mutex";
@@ -232,10 +231,10 @@ namespace shared_memory_interface
     try
     {
       ROS_ID_INFO_STREAM("Creating new shared memory field for " << m_field_name);
-      segment->construct<SMString>(m_buffer_0_name.c_str())(segment->get_segment_manager());
-      segment->construct<SMString>(m_buffer_1_name.c_str())(segment->get_segment_manager());
+      segment->construct<SMString>(m_even_buffer_name.c_str())(segment->get_segment_manager());
+      segment->construct<SMString>(m_odd_buffer_name.c_str())(segment->get_segment_manager());
 
-      segment->construct<bool>(m_buffer_selector_name.c_str())(false);
+      segment->construct<uint32_t>(m_buffer_sequence_id_name.c_str())(0);
       segment->construct<bool>(m_invalid_flag_name.c_str())(true); //field is invalid until someone writes actual data to it
 
 //      segment->construct<boost::interprocess::interprocess_condition>(m_condition_name.c_str())(segment->get_segment_manager());
@@ -254,6 +253,11 @@ namespace shared_memory_interface
     return true;
   }
 
+  inline bool isEven(uint32_t sequence_id)
+  {
+    return sequence_id & 0x1;
+  }
+
   bool SharedMemoryTransport::getData(std::string& data)
   {
     PRINT_TRACE_ENTER
@@ -266,20 +270,11 @@ namespace shared_memory_interface
 
     while(ros::ok())
     {
-      bool buffer_selector = *segment->find<bool>(m_buffer_selector_name.c_str()).first;
-      std::string read_buffer_name;
-      if(buffer_selector)
-      {
-        read_buffer_name = m_buffer_0_name;
-      }
-      else
-      {
-        read_buffer_name = m_buffer_1_name;
-      }
-
+      uint32_t buffer_sequence_id = *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first;
+      std::string read_buffer_name = isEven(buffer_sequence_id)? m_even_buffer_name : m_odd_buffer_name;
       SMString* field_data = segment->find<SMString>(read_buffer_name.c_str()).first;
 
-      if(buffer_selector != *segment->find<bool>(m_buffer_selector_name.c_str()).first)
+      if(buffer_sequence_id != *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first)
       {
         //someone wrote to the buffer while we were reading it! try again...
         //TODO: add counter to detect starvation?
@@ -307,11 +302,12 @@ namespace shared_memory_interface
       return false;
     }
 
-    bool* buffer_selector = segment->find<bool>(m_buffer_selector_name.c_str()).first;
-    std::string write_buffer_name = (*buffer_selector)? m_buffer_1_name : m_buffer_0_name;
+    uint32_t* buffer_sequence_id = segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first;
+    std::string write_buffer_name = isEven(*buffer_sequence_id)? m_odd_buffer_name : m_even_buffer_name;
+
     *segment->find<SMString>(write_buffer_name.c_str()).first = SMString(data.begin(), data.end(), segment->get_segment_manager());
     *segment->find<bool>(m_invalid_flag_name.c_str()).first = false;
-    *buffer_selector = !(*buffer_selector);
+    *buffer_sequence_id = (*buffer_sequence_id) + 1;
 //    segment->find<boost::interprocess::interprocess_condition>(m_condition_name.c_str()).first->notify_all();
 
     PRINT_TRACE_EXIT
@@ -354,9 +350,9 @@ namespace shared_memory_interface
     }
     else
     {
-      bool initial_buffer_selector = *segment->find<bool>(m_buffer_selector_name.c_str()).first;
+      uint32_t initial_buffer_selector = *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first;
       boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(timeout);
-      while(ros::ok() && (initial_buffer_selector == *segment->find<bool>(m_buffer_selector_name.c_str()).first)) //wait for the selector to change
+      while(ros::ok() && (initial_buffer_selector == *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first)) //wait for the selector to change
       {
         CATCH_SHUTDOWN_SIGNAL
         if(timeout < 0)

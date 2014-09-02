@@ -95,9 +95,9 @@ namespace shared_memory_interface
 
     bool m_initialized;
     std::string m_field_name;
-    std::string m_buffer_0_name;
-    std::string m_buffer_1_name;
-    std::string m_buffer_selector_name;
+    std::string m_even_buffer_name;
+    std::string m_odd_buffer_name;
+    std::string m_buffer_sequence_id_name;
     std::string m_invalid_flag_name;
     std::string m_condition_name;
     std::string m_condition_mutex_name;
