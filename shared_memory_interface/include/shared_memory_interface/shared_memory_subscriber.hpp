@@ -43,13 +43,17 @@ namespace shared_memory_interface
     Subscriber(bool listen_to_rostopic = true)
     {
       m_listen_to_rostopic = listen_to_rostopic;
+      m_callback_thread = NULL;
     }
 
     ~Subscriber()
     {
-      m_callback_thread->interrupt();
-      m_callback_thread->detach();
-      delete m_callback_thread;
+      if(m_callback_thread != NULL)
+      {
+        m_callback_thread->interrupt();
+        m_callback_thread->detach();
+        delete m_callback_thread;
+      }
     }
 
     //just sets up names and subscriber for future getCurrent / waitFor calls

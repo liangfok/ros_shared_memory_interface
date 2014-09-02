@@ -39,6 +39,8 @@ namespace shared_memory_interface
 
 #define ROS_ID_DEBUG_THROTTLED_STREAM(...) ROS_DEBUG_STREAM_THROTTLE(1.0, "SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
 #define ROS_ID_INFO_THROTTLED_STREAM(...) ROS_INFO_STREAM_THROTTLE(1.0, "SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_WARN_THROTTLED_STREAM(...) ROS_WARN_STREAM_THROTTLE(1.0, "SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_ERROR_THROTTLED_STREAM(...) ROS_ERROR_STREAM_THROTTLE(1.0, "SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
 #define ROS_ID_DEBUG_STREAM(...) ROS_DEBUG_STREAM("SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
 #define ROS_ID_INFO_STREAM(...) ROS_INFO_STREAM("SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
 #define ROS_ID_WARN_STREAM(...) ROS_WARN_STREAM("SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
@@ -120,6 +122,7 @@ namespace shared_memory_interface
     try
     {
       boost::interprocess::managed_shared_memory segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, interface_name.c_str());
+      boost::interprocess::shared_memory_object::remove(interface_name.c_str());
       *segment.find<bool>("shutdown_required").first = true; //inform the other processes that the shared memory needs to close
     }
     catch(boost::interprocess::interprocess_exception &ex)
@@ -130,7 +133,7 @@ namespace shared_memory_interface
     //NOTE: shared memory will be unlinked, not destroyed. Anyone who already has the space mapped will still be able to run,
     //but new processes will not be able to open the space again. The memory space will only be destroyed when the last
     //managed_shared_memory object is destroyed.
-    usleep(3000000); //TODO: change to boost thread sleep?
+    usleep(2000000); //TODO: change to boost thread sleep?
     boost::interprocess::shared_memory_object::remove(interface_name.c_str());
     std::cerr << "SharedMemoryTransport(" << getpid() << "): " << "Shared memory space successfully destroyed." << std::endl;
     PRINT_TRACE_EXIT
@@ -139,27 +142,39 @@ namespace shared_memory_interface
   SharedMemoryTransport::SharedMemoryTransport()
   {
     m_initialized = false;
+    m_watchdog_thread = NULL;
   }
 
   SharedMemoryTransport::~SharedMemoryTransport()
   {
+    if(m_watchdog_thread != NULL)
+    {
+      m_watchdog_thread->interrupt();
+      m_watchdog_thread->detach();
+      delete m_watchdog_thread;
+    }
   }
 
   void SharedMemoryTransport::watchdogFunction()
   {
     while(ros::ok())
     {
-      bool shutdown_required = *segment->find<bool>("shutdown_required").first;
-      if(shutdown_required)
+      bool* shutdown_required = segment->find<bool>("shutdown_required").first;
+      if(!shutdown_required)
+      {
+        ROS_ID_ERROR_THROTTLED_STREAM("Couldn't find shutdown signal field!");
+        continue;
+      }
+      if(*shutdown_required)
       {
         m_initialized = false;
-        ROS_ID_WARN_STREAM("Shutdown signal detected! Disconnecting from shared memory in 2 seconds!");
-        usleep(2000000); //TODO: change to boost thread sleep?
+        ROS_ID_WARN_STREAM("Shutdown signal detected! Disconnecting from shared memory in one second!");
+        usleep(1000000); //TODO: change to boost thread sleep?
         delete segment;
         ROS_ID_WARN_STREAM("Disconnected from shared memory!");
         return;
       }
-      usleep(2000000); //TODO: change to boost thread sleep?
+      usleep(1000000); //TODO: change to boost thread sleep?
       boost::this_thread::interruption_point();
     }
   }
@@ -178,26 +193,20 @@ namespace shared_memory_interface
     }
     else
     {
-      ROS_ID_INFO_STREAM("Configuring " << interface_name << " space.");
+      ROS_ID_INFO_STREAM("Configuring " << interface_name << ":" << field_name << " transport.");
     }
     while(ros::ok()) //there's probably a much less silly way to do this...
     {
       try
       {
         segment = new boost::interprocess::managed_shared_memory(boost::interprocess::open_only, interface_name.c_str());
-        ROS_ID_INFO_STREAM("Connected to " << interface_name << " space.");
         break;
       }
       catch(boost::interprocess::interprocess_exception &ex) //shared memory hasn't been created yet, so we'll make it
       {
         ROS_ID_INFO_THROTTLED_STREAM("Waiting for shared memory space " << interface_name << " to become available (is the manager running?)...");
       }
-//      boost::this_thread::interruption_point();
-    }
-
-    while(ros::ok() && (segment->find<bool>("shutdown_required").first == NULL))
-    {
-      ROS_ID_INFO_THROTTLED_STREAM("Waiting for shared memory space " << interface_name << " to become available (is the manager running?)...");
+      boost::this_thread::interruption_point();
     }
 
     m_field_name = field_name;
@@ -213,7 +222,7 @@ namespace shared_memory_interface
 
     m_initialized = true; //TODO: check names initialized everywhere
 
-    ROS_ID_INFO_STREAM("Configuration complete!");
+    ROS_ID_INFO_STREAM("Connected to " << interface_name << ":" << field_name << ".");
     PRINT_TRACE_EXIT
   }
 
@@ -336,12 +345,6 @@ namespace shared_memory_interface
   {
     PRINT_TRACE_ENTER
     TEST_INITIALIZED
-    while(!hasData()) //wait for the field to at least have something
-    {
-      CATCH_SHUTDOWN_SIGNAL
-      ROS_ID_DEBUG_THROTTLED_STREAM("Waiting for field " << m_field_name << " to become valid.");
-      boost::this_thread::interruption_point();
-    }
 
     if(timeout == 0)
     {
@@ -350,6 +353,13 @@ namespace shared_memory_interface
     }
     else
     {
+      while(ros::ok() && !hasData()) //wait for the field to at least have something
+      {
+        CATCH_SHUTDOWN_SIGNAL
+        ROS_ID_WARN_THROTTLED_STREAM("Waiting for field " << m_field_name << " to become valid.");
+        boost::this_thread::interruption_point();
+      }
+
       uint32_t initial_buffer_selector = *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first;
       boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(timeout);
       while(ros::ok() && (initial_buffer_selector == *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first)) //wait for the selector to change

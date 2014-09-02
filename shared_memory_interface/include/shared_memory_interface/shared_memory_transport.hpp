@@ -62,6 +62,7 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/thread.hpp>
+#include <boost/shared_ptr.hpp>
 #include <boost/type_traits.hpp>
 
 #include "shared_memory_utils.h"
