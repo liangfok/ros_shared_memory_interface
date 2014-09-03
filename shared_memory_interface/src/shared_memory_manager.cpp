@@ -41,12 +41,22 @@ namespace shared_memory_interface
     m_nh.param("loop_rate", m_loop_rate, 10.0);
     m_nh.param("interface_name", m_interface_name, std::string("smi"));
     m_nh.param("memory_size", m_memory_size, 512.0 * 1024.0 * 1024.0); //param is double because ros apparently doesn't like unsigned int
-    SharedMemoryTransport::createMemory(m_interface_name, (unsigned int) m_memory_size);
+    if(!SharedMemoryTransport::createMemory(m_interface_name, (unsigned int) m_memory_size))
+    {
+      ROS_WARN("Another shared_memory_manager appears to be running. Shutting down!");
+      ros::shutdown();
+      m_memory_created = false;
+      return;
+    }
+    m_memory_created = true;
   }
 
   SharedMemoryManager::~SharedMemoryManager()
   {
-    SharedMemoryTransport::destroyMemory(m_interface_name);
+    if(m_memory_created)
+    {
+      SharedMemoryTransport::destroyMemory(m_interface_name);
+    }
   }
 
   void SharedMemoryManager::spin()
@@ -63,7 +73,7 @@ namespace shared_memory_interface
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "shared_memory_manager");
+  ros::init(argc, argv, "shared_memory_manager", ros::init_options::AnonymousName);
   ros::NodeHandle nh("~");
 
   shared_memory_interface::SharedMemoryManager node(nh);

@@ -55,7 +55,7 @@ namespace shared_memory_interface
     return perm;
   }
 
-  void SharedMemoryTransport::createMemory(std::string interface_name, unsigned int size)
+  bool SharedMemoryTransport::createMemory(std::string interface_name, unsigned int size)
   {
     PRINT_TRACE_ENTER
     //make sure the system will let us create a memory space of the desired size
@@ -110,8 +110,10 @@ namespace shared_memory_interface
     catch(boost::interprocess::interprocess_exception &ex) //shared memory hasn't been created yet, so we'll make it
     {
       ROS_ID_WARN_STREAM("Shared memory space already existed!");
+      return false;
     }
     PRINT_TRACE_EXIT
+    return true;
   }
 
   //cerr used below because ROS doesn't work after ros::shutdown has happened.

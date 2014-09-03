@@ -49,6 +49,7 @@ namespace shared_memory_interface
     double m_loop_rate;
     std::string m_interface_name;
     double m_memory_size;
+    bool m_memory_created;
   };
 }
 #endif //SHARED_MEMORY_MANAGER_HPP

@@ -75,7 +75,7 @@ namespace shared_memory_interface
     SharedMemoryTransport();
     ~SharedMemoryTransport();
 
-    static void createMemory(std::string interface_name, unsigned int size);
+    static bool createMemory(std::string interface_name, unsigned int size);
     static void destroyMemory(std::string interface_name);
 
     bool initialized();
