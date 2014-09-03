@@ -65,7 +65,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/type_traits.hpp>
 
-#include "shared_memory_utils.h"
+#include "shared_memory_utils.hpp"
 
 namespace shared_memory_interface
 {

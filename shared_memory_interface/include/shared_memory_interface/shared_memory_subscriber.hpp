@@ -141,7 +141,8 @@ namespace shared_memory_interface
         }
         catch(ros::serialization::StreamOverrunException& ex)
         {
-          ROS_ERROR("Deserialization failed! The string was:\n%s", serialized_data.c_str());
+          ros::NodeHandle nh("~");
+          ROS_ERROR("Deserialization failed for node %s, topic %s! The string was:\n%s", nh.getNamespace().c_str(), m_full_topic_path.c_str(), serialized_data.c_str());
         }
         boost::this_thread::interruption_point();
       }

@@ -133,7 +133,7 @@ namespace shared_memory_interface
     //NOTE: shared memory will be unlinked, not destroyed. Anyone who already has the space mapped will still be able to run,
     //but new processes will not be able to open the space again. The memory space will only be destroyed when the last
     //managed_shared_memory object is destroyed.
-    usleep(2000000); //TODO: change to boost thread sleep?
+    usleep(2000000);
     boost::interprocess::shared_memory_object::remove(interface_name.c_str());
     std::cerr << "SharedMemoryTransport(" << getpid() << "): " << "Shared memory space successfully destroyed." << std::endl;
     PRINT_TRACE_EXIT
@@ -169,12 +169,12 @@ namespace shared_memory_interface
       {
         m_initialized = false;
         ROS_ID_WARN_STREAM("Shutdown signal detected! Disconnecting from shared memory in one second!");
-        usleep(1000000); //TODO: change to boost thread sleep?
+        usleep(1000000);
         delete segment;
         ROS_ID_WARN_STREAM("Disconnected from shared memory!");
         return;
       }
-      usleep(1000000); //TODO: change to boost thread sleep?
+      usleep(1000000);
       boost::this_thread::interruption_point();
     }
   }
@@ -220,7 +220,7 @@ namespace shared_memory_interface
 
     m_watchdog_thread = new boost::thread(boost::bind(&SharedMemoryTransport::watchdogFunction, this));
 
-    m_initialized = true; //TODO: check names initialized everywhere
+    m_initialized = true;
 
     ROS_ID_INFO_STREAM("Connected to " << interface_name << ":" << field_name << ".");
     PRINT_TRACE_EXIT
@@ -282,19 +282,15 @@ namespace shared_memory_interface
       uint32_t buffer_sequence_id = *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first;
       std::string read_buffer_name = isEven(buffer_sequence_id)? m_even_buffer_name : m_odd_buffer_name;
       SMString* field_data = segment->find<SMString>(read_buffer_name.c_str()).first;
-
-      if(buffer_sequence_id != *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first)
+      data = std::string(field_data->begin(), field_data->end());
+      if(buffer_sequence_id == *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first) //no one wrote to the buffer while we were trying to read it
       {
-        //someone wrote to the buffer while we were reading it! try again...
-        //TODO: add counter to detect starvation?
-        boost::this_thread::interruption_point();
-        continue;
+        PRINT_TRACE_EXIT
+        return true;
       }
 
-      data = std::string(field_data->begin(), field_data->end());
-
-      PRINT_TRACE_EXIT
-      return true;
+      //TODO: add counter to detect starvation?
+      boost::this_thread::interruption_point();
     }
 
     PRINT_TRACE_EXIT
@@ -394,6 +390,8 @@ namespace shared_memory_interface
     ROS_ID_ERROR_STREAM("AWAIT NEW DATA DOESN'T WORK YET! USE THE POLLED VERSION FOR NOW!");
     PRINT_TRACE_EXIT
     return false;
+
+    //TODO: finish this
 
 //    if(timeout == 0)
 //    {
