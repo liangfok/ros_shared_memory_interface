@@ -40,7 +40,7 @@ void chatterCallback(std_msgs::String& msg)
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "listener");
+  ros::init(argc, argv, "listener", ros::init_options::AnonymousName);
   ros::NodeHandle n;
 
   shared_memory_interface::Subscriber<std_msgs::String> sub;
