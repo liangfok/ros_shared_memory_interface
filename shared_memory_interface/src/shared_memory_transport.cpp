@@ -284,11 +284,18 @@ namespace shared_memory_interface
       uint32_t buffer_sequence_id = *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first;
       std::string read_buffer_name = isEven(buffer_sequence_id)? m_even_buffer_name : m_odd_buffer_name;
       SMString* field_data = segment->find<SMString>(read_buffer_name.c_str()).first;
-      data = std::string(field_data->begin(), field_data->end());
-      if(buffer_sequence_id == *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first) //no one wrote to the buffer while we were trying to read it
+      try
       {
-        PRINT_TRACE_EXIT
-        return true;
+        data = std::string(field_data->begin(), field_data->end());
+        if(buffer_sequence_id == *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first) //no one wrote to the buffer while we were trying to read it
+        {
+          PRINT_TRACE_EXIT
+          return true;
+        }
+      }
+      catch(std::exception& ex) //catch std::string issues that happen during the copy
+      {
+        std::cerr << ex.what() << std::endl;
       }
 
       //TODO: add counter to detect starvation?
