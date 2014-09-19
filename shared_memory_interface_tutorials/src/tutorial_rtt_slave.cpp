@@ -34,16 +34,13 @@
 #include "shared_memory_interface/shared_memory_subscriber.hpp"
 #include <std_msgs/Int64.h>
 
-
 int rcvdCount;
-bool rcvdMsg;
-
+int lastSendCount;
 
 void rttTxCallback(std_msgs::Int64& msg)
 {
 	ROS_INFO("Slave: rttTxCallback called.");
     rcvdCount = msg.data;
-    rcvdMsg = true;
 }
 
 int main(int argc, char **argv)
@@ -51,32 +48,41 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "slave");
   ros::NodeHandle n;
 
-  rcvdCount = 0;
-  rcvdMsg = false;
-
   shared_memory_interface::Subscriber<std_msgs::Int64> sub;
   sub.subscribe("/rtt_tx", boost::bind(&rttTxCallback, _1));
 
-  // shared_memory_interface::Publisher<std_msgs::Int64> pub;
-  // pub.advertise("/rtt_rx");
+  shared_memory_interface::Publisher<std_msgs::Int64> pub;
+  pub.advertise("/rtt_rx");
 
   ros::Rate loop_rate(1000);
-  int count = 0;
-
+  
   std_msgs::Int64 msg;
+
+  // Get and reflect the current message
+  if (sub.getCurrentMessage(msg))
+  {
+    lastSendCount = rcvdCount = msg.data;
+    if (!pub.publish(msg))
+    {
+      ROS_ERROR("Slave: Failed to publish message. Aborting.");
+      return -1;
+    }
+  }
+  else
+    lastSendCount = rcvdCount = -1;
 
   while (ros::ok())
   {
   	// ROS_INFO("Slave: begin loop cycle.");
-    if (rcvdMsg)
+    if (lastSendCount != rcvdCount)
     {
-      msg.data = rcvdCount;
+      msg.data = lastSendCount = rcvdCount;
       ROS_INFO("Slave: publishing %i", msg.data);
-      // if (!pub.publish(msg))
-      // {
-      //   ROS_ERROR("Slave: Failed to publish message. Aborting.");
-      //   break;
-      // }
+      if (!pub.publish(msg))
+      {
+        ROS_ERROR("Slave: Failed to publish message. Aborting.");
+        break;
+      }
     }
     loop_rate.sleep();
   }

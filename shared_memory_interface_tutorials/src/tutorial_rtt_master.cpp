@@ -41,6 +41,7 @@ int rcvdCount;
 void rttRxCallback(std_msgs::Int64& msg)
 {
   rcvdCount = msg.data;
+  ROS_INFO("Master: Received %i", rcvdCount);
 }
 
 int main(int argc, char **argv)
@@ -48,16 +49,15 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "master");
   ros::NodeHandle n;
 
-  rcvdCount = 0;
-
-  // shared_memory_interface::Subscriber<std_msgs::Int64> sub;
-  // sub.subscribe("/rtt_rx", boost::bind(&rttRxCallback, _1));
+  shared_memory_interface::Subscriber<std_msgs::Int64> sub;
+  sub.subscribe("/rtt_rx", boost::bind(&rttRxCallback, _1));
 
   shared_memory_interface::Publisher<std_msgs::Int64> pub;
   pub.advertise("/rtt_tx");
 
   ros::Rate loop_rate(1000);
   int count = 0;
+  rcvdCount = count;  // set rcvdCount equal to count to trigger send
 
   std_msgs::Int64 msg;
 
@@ -66,7 +66,7 @@ int main(int argc, char **argv)
     // ROS_INFO("Master: begin loop cycle.");
     if (rcvdCount == count)
     {
-      msg.data = count++;
+      msg.data = ++count;
       ROS_INFO("Master: publishing %i", msg.data);
       if (!pub.publish(msg))
       {
