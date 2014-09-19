@@ -33,15 +33,27 @@
 #include "shared_memory_interface/shared_memory_publisher.hpp"
 #include "shared_memory_interface/shared_memory_subscriber.hpp"
 #include <std_msgs/Int64.h>
+#include <chrono>
 
-
+int currCount;
 int rcvdCount;
+std::chrono::high_resolution_clock::time_point sendTime;
 
 
 void rttRxCallback(std_msgs::Int64& msg)
 {
   rcvdCount = msg.data;
-  ROS_INFO("Master: Received %i", rcvdCount);
+  // ROS_INFO("Master: rttRxCallback: rcvdCount = %i, currCount = %i", rcvdCount, currCount);
+
+  if (rcvdCount == currCount)
+  {
+    // Compute the time since the sequence number was sent.
+    std::chrono::nanoseconds timeSpan = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::high_resolution_clock::now() - sendTime);
+    double rtt = 1e9 / timeSpan.count();
+    ROS_INFO("RTT: %f", rtt);
+  }
+
 }
 
 int main(int argc, char **argv)
@@ -55,19 +67,20 @@ int main(int argc, char **argv)
   shared_memory_interface::Publisher<std_msgs::Int64> pub;
   pub.advertise("/rtt_tx");
 
-  ros::Rate loop_rate(1000);
-  int count = 0;
-  rcvdCount = count;  // set rcvdCount equal to count to trigger send
+  ros::Rate loop_rate(1);
+
+  rcvdCount = currCount = 0;  // set rcvdCount equal to count to trigger send
 
   std_msgs::Int64 msg;
 
   while (ros::ok())
   {
     // ROS_INFO("Master: begin loop cycle.");
-    if (rcvdCount == count)
+    if (rcvdCount == currCount)
     {
-      msg.data = ++count;
-      ROS_INFO("Master: publishing %i", msg.data);
+      msg.data = ++currCount;
+      // ROS_INFO("Master: publishing %i", msg.data);
+      sendTime = std::chrono::high_resolution_clock::now();
       if (!pub.publish(msg))
       {
         ROS_ERROR("Master: Failed to publish message. Aborting.");

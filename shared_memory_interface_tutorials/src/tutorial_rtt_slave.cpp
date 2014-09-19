@@ -39,7 +39,7 @@ int lastSendCount;
 
 void rttTxCallback(std_msgs::Int64& msg)
 {
-	ROS_INFO("Slave: rttTxCallback called.");
+	// ROS_INFO("Slave: rttTxCallback called.");
     rcvdCount = msg.data;
 }
 
@@ -54,7 +54,7 @@ int main(int argc, char **argv)
   shared_memory_interface::Publisher<std_msgs::Int64> pub;
   pub.advertise("/rtt_rx");
 
-  ros::Rate loop_rate(1000);
+  ros::Rate loop_rate(10000);
   
   std_msgs::Int64 msg;
 
@@ -71,13 +71,14 @@ int main(int argc, char **argv)
   else
     lastSendCount = rcvdCount = -1;
 
+  ROS_INFO("Slave: Reflecting sequence numbers from master...");
   while (ros::ok())
   {
   	// ROS_INFO("Slave: begin loop cycle.");
     if (lastSendCount != rcvdCount)
     {
       msg.data = lastSendCount = rcvdCount;
-      ROS_INFO("Slave: publishing %i", msg.data);
+      // ROS_INFO("Slave: publishing %i", msg.data);
       if (!pub.publish(msg))
       {
         ROS_ERROR("Slave: Failed to publish message. Aborting.");
@@ -86,6 +87,8 @@ int main(int argc, char **argv)
     }
     loop_rate.sleep();
   }
+
+  ROS_INFO("Slave: Exiting...");
 
   ros::spin();
   return 0;
