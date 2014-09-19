@@ -22,3 +22,9 @@ target_link_libraries(tutorial_ros_talker shared_memory_interface)
 
 rosbuild_add_executable(tutorial_ros_listener src/tutorial_ros_listener.cpp)
 target_link_libraries(tutorial_ros_listener shared_memory_interface)
+
+rosbuild_add_executable(tutorial_rtt_master src/tutorial_rtt_master.cpp)
+target_link_libraries(tutorial_rtt_master shared_memory_interface)
+
+rosbuild_add_executable(tutorial_rtt_slave src/tutorial_rtt_slave.cpp)
+target_link_libraries(tutorial_rtt_slave shared_memory_interface)
