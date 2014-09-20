@@ -33,27 +33,33 @@
 #include "shared_memory_interface/shared_memory_publisher.hpp"
 #include "shared_memory_interface/shared_memory_subscriber.hpp"
 #include <std_msgs/Int64.h>
-#include <chrono>
+// #include <chrono>
 
+#define NUM_SAMPLES 1000  // the number of samples over which to calculate the latency statistics
+
+bool firstRound; // keep track of first round so that we can ignore it
 int currCount;
 int rcvdCount;
-std::chrono::high_resolution_clock::time_point sendTime;
-
+// std::chrono::high_resolution_clock::time_point sendTime;
+ros::Time sendTime;
 
 void rttRxCallback(std_msgs::Int64& msg)
 {
   rcvdCount = msg.data;
   // ROS_INFO("Master: rttRxCallback: rcvdCount = %i, currCount = %i", rcvdCount, currCount);
 
-  if (rcvdCount == currCount)
+  if (!firstRound && rcvdCount == currCount)
   {
     // Compute the time since the sequence number was sent.
-    std::chrono::nanoseconds timeSpan = std::chrono::duration_cast<std::chrono::nanoseconds>(
-      std::chrono::high_resolution_clock::now() - sendTime);
-    double rtt = 1e9 / timeSpan.count();
-    ROS_INFO("RTT: %f", rtt);
-  }
+    
+    double rtt = (ros::Time::now() - sendTime).toSec();
 
+    // std::chrono::nanoseconds timeSpan = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    //   std::chrono::high_resolution_clock::now() - sendTime);
+    // double rtt = 1e9 / timeSpan.count();
+    ROS_INFO("RTT: %f us", rtt * 1e6);
+  }
+  firstRound = false;
 }
 
 int main(int argc, char **argv)
@@ -61,17 +67,20 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "master");
   ros::NodeHandle n;
 
+  firstRound = true;
+  rcvdCount = currCount = 0;  // set rcvdCount equal to count to trigger send
+
   shared_memory_interface::Subscriber<std_msgs::Int64> sub;
   sub.subscribe("/rtt_rx", boost::bind(&rttRxCallback, _1));
 
   shared_memory_interface::Publisher<std_msgs::Int64> pub;
   pub.advertise("/rtt_tx");
 
-  ros::Rate loop_rate(1);
-
-  rcvdCount = currCount = 0;  // set rcvdCount equal to count to trigger send
+  ros::Rate loop_rate(10);
 
   std_msgs::Int64 msg;
+
+  double data[NUM_SAMPLES];
 
   while (ros::ok())
   {
@@ -80,7 +89,9 @@ int main(int argc, char **argv)
     {
       msg.data = ++currCount;
       // ROS_INFO("Master: publishing %i", msg.data);
-      sendTime = std::chrono::high_resolution_clock::now();
+      // sendTime = std::chrono::high_resolution_clock::now();
+
+      sendTime = ros::Time::now();
       if (!pub.publish(msg))
       {
         ROS_ERROR("Master: Failed to publish message. Aborting.");
