@@ -1,7 +1,7 @@
 /*
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2014, Joshua James
+ *  Copyright (c) 2014, Chien-Liang Fok
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -33,31 +33,64 @@
 #include "shared_memory_interface/shared_memory_publisher.hpp"
 #include "shared_memory_interface/shared_memory_subscriber.hpp"
 #include <std_msgs/Int64.h>
-// #include <chrono>
 
 #define NUM_SAMPLES 1000  // the number of samples over which to calculate the latency statistics
+int dataIndex = 0;
+double data[NUM_SAMPLES];
 
-bool firstRound; // keep track of first round so that we can ignore it
-int currCount;
-int rcvdCount;
-// std::chrono::high_resolution_clock::time_point sendTime;
+bool firstRound = true; // keep track of first round so that we can ignore it
+int currCount = 0;
+int rcvdCount = 0;
+
 ros::Time sendTime;
+
+void printStats()
+{
+  double sum = 0;
+  double max = data[0];
+  double min = data[0];
+
+  for (int ii = 0; ii < NUM_SAMPLES; ii++)
+  {
+    sum += data[ii];
+    if (max < data[ii]) max = data[ii];
+    if (min > data[ii]) min = data[ii];
+  }
+  double avg = sum / NUM_SAMPLES;
+
+  double variance = 0;
+  for (int ii = 0; ii < NUM_SAMPLES; ii++)
+  {
+    variance += (data[ii] - avg) * (data[ii] - avg);
+  }
+
+  variance /= NUM_SAMPLES;
+  double stdev = sqrt(variance);
+
+  ROS_INFO_STREAM("RTT Benchmark statistics:\n"
+    << " - Num samples: " << NUM_SAMPLES << "\n"
+    << " - Average (us): " << avg << "\n" 
+    << " - Standard deviation: " << stdev << "\n"
+    << " - Min (us): " << min << "\n"
+    << " - Max (us): " << max);
+
+  ros::shutdown();
+}
 
 void rttRxCallback(std_msgs::Int64& msg)
 {
   rcvdCount = msg.data;
-  // ROS_INFO("Master: rttRxCallback: rcvdCount = %i, currCount = %i", rcvdCount, currCount);
 
-  if (!firstRound && rcvdCount == currCount)
+  if (!firstRound && dataIndex < NUM_SAMPLES && rcvdCount == currCount)
   {
-    // Compute the time since the sequence number was sent.
-    
-    double rtt = (ros::Time::now() - sendTime).toSec();
+    // Compute the time since the sequence number was sent.    
+    double rtt = (ros::Time::now() - sendTime).toSec() * 1e6;
 
-    // std::chrono::nanoseconds timeSpan = std::chrono::duration_cast<std::chrono::nanoseconds>(
-    //   std::chrono::high_resolution_clock::now() - sendTime);
-    // double rtt = 1e9 / timeSpan.count();
-    ROS_INFO("RTT: %f us", rtt * 1e6);
+    ROS_INFO("RTT %i: %f us", dataIndex + 1, rtt);
+    data[dataIndex++] = rtt;
+
+    if (dataIndex == NUM_SAMPLES)
+      printStats();
   }
   firstRound = false;
 }
@@ -67,29 +100,21 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "master");
   ros::NodeHandle n;
 
-  firstRound = true;
-  rcvdCount = currCount = 0;  // set rcvdCount equal to count to trigger send
-
   shared_memory_interface::Subscriber<std_msgs::Int64> sub;
   sub.subscribe("/rtt_rx", boost::bind(&rttRxCallback, _1));
 
   shared_memory_interface::Publisher<std_msgs::Int64> pub;
   pub.advertise("/rtt_tx");
 
-  ros::Rate loop_rate(10);
+  ros::Rate loop_rate(1000);
 
   std_msgs::Int64 msg;
 
-  double data[NUM_SAMPLES];
-
   while (ros::ok())
   {
-    // ROS_INFO("Master: begin loop cycle.");
     if (rcvdCount == currCount)
     {
       msg.data = ++currCount;
-      // ROS_INFO("Master: publishing %i", msg.data);
-      // sendTime = std::chrono::high_resolution_clock::now();
 
       sendTime = ros::Time::now();
       if (!pub.publish(msg))

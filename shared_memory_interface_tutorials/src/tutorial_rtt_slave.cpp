@@ -1,7 +1,7 @@
 /*
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2014, Joshua James
+ *  Copyright (c) 2014, Chien-Liang Fok
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -34,17 +34,10 @@
 #include "shared_memory_interface/shared_memory_subscriber.hpp"
 #include <std_msgs/Int64.h>
 
-// int rcvdCount;
-// int lastSendCount;
-// std_msgs::Int64 msg;
 shared_memory_interface::Publisher<std_msgs::Int64> pub;
 
 void rttTxCallback(std_msgs::Int64& msg)
 {
-  // ROS_INFO("Slave: rttTxCallback called.");
-  // rcvdCount = msg.data;
-  
-  // ROS_INFO("Slave: publishing %i", msg.data);
   if (!pub.publish(msg))
   {
     ROS_ERROR("Slave: Failed to publish message. Aborting.");
@@ -62,35 +55,18 @@ int main(int argc, char **argv)
 
   pub.advertise("/rtt_rx");
 
-  // ros::Rate loop_rate(10000);
-  
   std_msgs::Int64 msg;
 
-  // Get and reflect the current message
+  // Get and reflect the current message.  This is useful in case
+  // the master starts before the slave.
   if (sub.getCurrentMessage(msg))
   {
-    // lastSendCount = rcvdCount = msg.data;
     if (!pub.publish(msg))
     {
       ROS_ERROR("Slave: Failed to publish message. Aborting.");
       return -1;
     }
   }
-  else
-    // lastSendCount = rcvdCount = -1;
-
-  ROS_INFO("Slave: Reflecting sequence numbers from master...");
-  // while (ros::ok())
-  // {
-  // 	// ROS_INFO("Slave: begin loop cycle.");
-  //   if (lastSendCount != rcvdCount)
-  //   {
-  //     msg.data = lastSendCount = rcvdCount;
-  //   }
-  //   loop_rate.sleep();
-  // }
-
-  // ROS_INFO("Slave: Exiting...");
 
   ros::spin();
   return 0;
