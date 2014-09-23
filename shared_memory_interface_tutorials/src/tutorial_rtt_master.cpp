@@ -81,6 +81,8 @@ void rttRxCallback(std_msgs::Int64& msg)
 {
   rcvdCount = msg.data;
 
+  // std::cerr << "got " << msg.data << std::endl;
+
   if (!firstRound && dataIndex < NUM_SAMPLES && rcvdCount == currCount)
   {
     // Compute the time since the sequence number was sent.    
@@ -121,8 +123,13 @@ int main(int argc, char **argv)
       {
         ROS_ERROR("Master: Failed to publish message. Aborting.");
         break;
-      }      
+      }     
+      // else
+      // {
+      //   std::cerr<< "Sent " << msg.data << std::endl;
+      // }
     }
+
     
     loop_rate.sleep();
   }
