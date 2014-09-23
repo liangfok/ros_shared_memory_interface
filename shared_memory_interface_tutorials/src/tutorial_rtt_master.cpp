@@ -79,11 +79,9 @@ void printStats()
 
 void rttRxCallback(std_msgs::Int64& msg)
 {
-  rcvdCount = msg.data;
-
   // std::cerr << "got " << msg.data << std::endl;
 
-  if (!firstRound && dataIndex < NUM_SAMPLES && rcvdCount == currCount)
+  if (!firstRound && dataIndex < NUM_SAMPLES && msg.data == currCount)
   {
     // Compute the time since the sequence number was sent.    
     double rtt = (ros::Time::now() - sendTime).toSec() * 1e6;
@@ -94,6 +92,9 @@ void rttRxCallback(std_msgs::Int64& msg)
     if (dataIndex == NUM_SAMPLES)
       printStats();
   }
+
+  rcvdCount = msg.data; // triggers the sending of the next RTT number
+
   firstRound = false;
 }
 
@@ -129,7 +130,6 @@ int main(int argc, char **argv)
       //   std::cerr<< "Sent " << msg.data << std::endl;
       // }
     }
-
     
     loop_rate.sleep();
   }
