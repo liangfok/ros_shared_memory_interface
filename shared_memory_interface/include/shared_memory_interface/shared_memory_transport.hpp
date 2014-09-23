@@ -84,6 +84,8 @@ namespace shared_memory_interface
     bool getData(std::string& data);
     bool setData(std::string data);
 
+    std::string getFieldName();
+
     bool fieldExists();
     bool hasData(); //returns true if the field has already been configured
     bool awaitNewDataPolled(std::string& data, double timeout = -1);

@@ -427,4 +427,9 @@ namespace shared_memory_interface
 //    PRINT_TRACE_EXIT
 //    return true;
   }
+
+  std::string SharedMemoryTransport::getFieldName()
+  {
+    return m_field_name;
+  }
 }

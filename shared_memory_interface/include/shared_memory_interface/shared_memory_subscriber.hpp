@@ -123,6 +123,23 @@ namespace shared_memory_interface
     {
       T msg;
       std::string serialized_data;
+
+      while(ros::ok() && !smt->hasData()) //wait for the field to at least have something
+      {
+        if(!smt->initialized())
+        {
+          ROS_WARN("Shared memory transport was shut down. Stopping callback thread!");
+          return;
+        }
+        ROS_WARN_STREAM_THROTTLE(1.0, "Waiting for field " << smt->getFieldName() << " to become valid.");
+        boost::this_thread::interruption_point();
+      }
+
+      if(getCurrentMessage(msg))
+      {
+        callback(msg);
+      }
+
       while(ros::ok())
       {
         try
