@@ -97,14 +97,14 @@ void rttRxCallback(std_msgs::Int64& msg)
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "master");
+  ros::init(argc, argv, "master", ros::init_options::AnonymousName);
   ros::NodeHandle n;
-
-  shared_memory_interface::Subscriber<std_msgs::Int64> sub;
-  sub.subscribe("/rtt_rx", boost::bind(&rttRxCallback, _1));
 
   shared_memory_interface::Publisher<std_msgs::Int64> pub;
   pub.advertise("/rtt_tx");
+
+  shared_memory_interface::Subscriber<std_msgs::Int64> sub;
+  sub.subscribe("/rtt_rx", boost::bind(&rttRxCallback, _1));
 
   ros::Rate loop_rate(1000);
 

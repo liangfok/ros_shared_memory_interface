@@ -51,13 +51,13 @@ void rttTxCallback(std_msgs::Int64& msg)
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "slave");
+  ros::init(argc, argv, "slave", ros::init_options::AnonymousName);
   ros::NodeHandle n;
+
+  pub.advertise("/rtt_rx");
 
   shared_memory_interface::Subscriber<std_msgs::Int64> sub;
   sub.subscribe("/rtt_tx", boost::bind(&rttTxCallback, _1));
-
-  pub.advertise("/rtt_rx");
 
   std_msgs::Int64 msg;
 
@@ -69,7 +69,6 @@ int main(int argc, char **argv)
     pub.publish(msg);
     ROS_WARN_THROTTLE(1.0, "Waiting for first message");
   }
-
   ros::spin();
   return 0;
 }
