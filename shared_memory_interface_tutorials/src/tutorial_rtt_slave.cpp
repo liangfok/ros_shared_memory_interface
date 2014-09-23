@@ -36,12 +36,8 @@
 
 shared_memory_interface::Publisher<std_msgs::Int64> pub;
 
-bool first_message_received = false;
-
 void rttTxCallback(std_msgs::Int64& msg)
 {
-  first_message_received = true;
-  
   if (!pub.publish(msg))
   {
     ROS_ERROR("Slave: Failed to publish message. Aborting.");
@@ -63,11 +59,13 @@ int main(int argc, char **argv)
 
   // Get and reflect the current message.  This is useful in case
   // the master starts before the slave.
-  while(!first_message_received)
+  if (sub.getCurrentMessage(msg))
   {
-    sub.getCurrentMessage(msg);
-    pub.publish(msg);
-    ROS_WARN_THROTTLE(1.0, "Waiting for first message");
+    if (!pub.publish(msg))
+    {
+      ROS_ERROR("Slave: Failed to publish message. Aborting.");
+      return -1;
+    }
   }
   ros::spin();
   return 0;
