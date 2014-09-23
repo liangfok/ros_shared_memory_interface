@@ -37,7 +37,7 @@
 shared_memory_interface::Publisher<std_msgs::Int64> pub;
 
 void rttTxCallback(std_msgs::Int64& msg)
-{
+{ 
   if (!pub.publish(msg))
   {
     ROS_ERROR("Slave: Failed to publish message. Aborting.");
@@ -47,13 +47,13 @@ void rttTxCallback(std_msgs::Int64& msg)
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "slave");
+  ros::init(argc, argv, "slave", ros::init_options::AnonymousName);
   ros::NodeHandle n;
+
+  pub.advertise("/rtt_rx");
 
   shared_memory_interface::Subscriber<std_msgs::Int64> sub;
   sub.subscribe("/rtt_tx", boost::bind(&rttTxCallback, _1));
-
-  pub.advertise("/rtt_rx");
 
   std_msgs::Int64 msg;
 
@@ -67,7 +67,6 @@ int main(int argc, char **argv)
       return -1;
     }
   }
-
   ros::spin();
   return 0;
 }
