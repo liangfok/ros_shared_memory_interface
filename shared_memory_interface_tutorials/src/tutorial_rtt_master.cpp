@@ -34,10 +34,13 @@
 #include "shared_memory_interface/shared_memory_subscriber.hpp"
 #include <std_msgs/Int64.h>
 
-#define NUM_SAMPLES 1000  // the number of samples over which to calculate the latency statistics
-int dataIndex = 0;
-double data[NUM_SAMPLES];
+// #define NUM_SAMPLES 1000  // the number of samples over which to calculate the latency statistics
+// double data[NUM_SAMPLES];
 
+int NUM_SAMPLES = 1000;
+double *data;
+
+int dataIndex = 0;
 bool firstRound = true; // keep track of first round so that we can ignore it
 int currCount = 0;
 int rcvdCount = 0;
@@ -79,11 +82,9 @@ void printStats()
 
 void rttRxCallback(std_msgs::Int64& msg)
 {
-  rcvdCount = msg.data;
-
   // std::cerr << "got " << msg.data << std::endl;
 
-  if (!firstRound && dataIndex < NUM_SAMPLES && rcvdCount == currCount)
+  if (!firstRound && dataIndex < NUM_SAMPLES && msg.data == currCount)
   {
     // Compute the time since the sequence number was sent.    
     double rtt = (ros::Time::now() - sendTime).toSec() * 1e6;
@@ -94,11 +95,21 @@ void rttRxCallback(std_msgs::Int64& msg)
     if (dataIndex == NUM_SAMPLES)
       printStats();
   }
+
+  rcvdCount = msg.data; // triggers the sending of the next RTT number
+
   firstRound = false;
 }
 
 int main(int argc, char **argv)
 {
+  if (argc == 2)
+  {
+    // Change the NUM_SAMPLES by reading the argument
+    NUM_SAMPLES = atoll(argv[1]);
+  }
+  data = new double[NUM_SAMPLES];
+
   ros::init(argc, argv, "master", ros::init_options::AnonymousName);
   ros::NodeHandle n;
 
@@ -129,7 +140,6 @@ int main(int argc, char **argv)
       //   std::cerr<< "Sent " << msg.data << std::endl;
       // }
     }
-
     
     loop_rate.sleep();
   }

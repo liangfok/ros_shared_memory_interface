@@ -39,8 +39,7 @@ shared_memory_interface::Publisher<std_msgs::Int64> pub;
 bool first_message_received;
 
 void rttTxCallback(std_msgs::Int64& msg)
-{ 
-  // std::cerr << "got " << msg.data << std::endl;
+{
   if (!pub.publish(msg))
   {
     ROS_ERROR("Slave: Failed to publish message. Aborting.");
