@@ -105,6 +105,8 @@ namespace shared_memory_interface
     std::string m_condition_name;
     std::string m_condition_mutex_name;
     std::string m_exists_flag_name;
+
+    uint32_t m_last_read_buffer_sequence_id;
   };
 
 }

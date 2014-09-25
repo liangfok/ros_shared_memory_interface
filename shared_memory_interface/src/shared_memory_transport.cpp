@@ -222,6 +222,15 @@ namespace shared_memory_interface
 
     m_watchdog_thread = new boost::thread(boost::bind(&SharedMemoryTransport::watchdogFunction, this));
 
+    if(fieldExists())
+    {
+      m_last_read_buffer_sequence_id = (*segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first) - 1;
+    }
+    else
+    {
+      m_last_read_buffer_sequence_id = 0;
+    }
+
     m_initialized = true;
 
     ROS_ID_INFO_STREAM("Connected to " << interface_name << ":" << field_name << ".");
@@ -289,6 +298,7 @@ namespace shared_memory_interface
         data = std::string(field_data->begin(), field_data->end());
         if(buffer_sequence_id == *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first) //no one wrote to the buffer while we were trying to read it
         {
+          m_last_read_buffer_sequence_id = buffer_sequence_id;
           PRINT_TRACE_EXIT
           return true;
         }
@@ -323,6 +333,7 @@ namespace shared_memory_interface
     *segment->find<bool>(m_invalid_flag_name.c_str()).first = false;
     *buffer_sequence_id = (*buffer_sequence_id) + 1;
 //    segment->find<boost::interprocess::interprocess_condition>(m_condition_name.c_str()).first->notify_all();
+//    ROS_ID_INFO_STREAM("Wrote data to " << m_field_name << "! bs:" << *buffer_sequence_id << " ptr: " << buffer_sequence_id);
 
     PRINT_TRACE_EXIT
     return true;
@@ -365,10 +376,11 @@ namespace shared_memory_interface
         boost::this_thread::interruption_point();
       }
 
-      uint32_t initial_buffer_selector = *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first;
       boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(timeout);
-      while(ros::ok() && (initial_buffer_selector == *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first)) //wait for the selector to change
+      while(ros::ok() && (m_last_read_buffer_sequence_id == *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first)) //wait for the selector to change
       {
+//        ROS_ID_DEBUG_STREAM("Trying to read data from " << m_field_name << "! lrbs:" << m_last_read_buffer_sequence_id << " bs:" << *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first);
+
         CATCH_SHUTDOWN_SIGNAL
         if(timeout < 0)
         {

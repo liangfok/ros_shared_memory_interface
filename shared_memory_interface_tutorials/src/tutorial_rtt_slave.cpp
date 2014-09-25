@@ -36,16 +36,9 @@
 
 shared_memory_interface::Publisher<std_msgs::Int64> pub;
 
-bool first_message_received;
-
 void rttTxCallback(std_msgs::Int64& msg)
 {
-  if (!pub.publish(msg))
-  {
-    ROS_ERROR("Slave: Failed to publish message. Aborting.");
-  }
-
-  first_message_received = true;
+  pub.publish(msg);
 }
 
 int main(int argc, char **argv)
@@ -57,14 +50,6 @@ int main(int argc, char **argv)
 
   shared_memory_interface::Subscriber<std_msgs::Int64> sub;
   sub.subscribe("/rtt_tx", boost::bind(&rttTxCallback, _1));
-
-  // std_msgs::Int64 msg;
-  // while(!first_message_received)
-  // {
-  //   sub.getCurrentMessage(msg);
-  //   pub.publish(msg);
-  //   ROS_WARN_THROTTLE(1.0, "Waiting for first message");
-  // }
 
   ros::spin();
   return 0;

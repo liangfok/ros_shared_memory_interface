@@ -37,7 +37,7 @@
 // #define NUM_SAMPLES 1000  // the number of samples over which to calculate the latency statistics
 // double data[NUM_SAMPLES];
 
-int NUM_SAMPLES = 1000; //Default Value
+int NUM_SAMPLES = 1000000; //Default Value
 double *data;
 
 int dataIndex = 0;
@@ -83,8 +83,6 @@ void printStats()
 
 void rttRxCallback(std_msgs::Int64& msg)
 {
-  // std::cerr << "got " << msg.data << std::endl;
-
   if (!firstRound && dataIndex < NUM_SAMPLES && msg.data == currCount)
   {
     // Compute the time since the sequence number was sent.    
@@ -97,9 +95,8 @@ void rttRxCallback(std_msgs::Int64& msg)
       printStats();
   }
 
-  rcvdCount = msg.data; // triggers the sending of the next RTT number
-
   firstRound = false;
+  rcvdCount = msg.data; // triggers the sending of the next RTT number
 }
 
 int main(int argc, char **argv)
@@ -136,10 +133,6 @@ int main(int argc, char **argv)
         ROS_ERROR("Master: Failed to publish message. Aborting.");
         break;
       }     
-      // else
-      // {
-      //   std::cerr<< "Sent " << msg.data << std::endl;
-      // }
     }
     
     loop_rate.sleep();
