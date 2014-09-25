@@ -222,6 +222,8 @@ namespace shared_memory_interface
 
     m_watchdog_thread = new boost::thread(boost::bind(&SharedMemoryTransport::watchdogFunction, this));
 
+    m_initialized = true;
+
     if(fieldExists())
     {
       m_last_read_buffer_sequence_id = (*segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first) - 1;
@@ -230,8 +232,6 @@ namespace shared_memory_interface
     {
       m_last_read_buffer_sequence_id = 0;
     }
-
-    m_initialized = true;
 
     ROS_ID_INFO_STREAM("Connected to " << interface_name << ":" << field_name << ".");
     PRINT_TRACE_EXIT
