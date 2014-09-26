@@ -43,8 +43,7 @@ double *data;
 
 int dataIndex = 0;
 bool firstRound = true; // keep track of first round so that we can ignore it
-int currCount = 0;
-int rcvdCount = 0;
+bool roundDone = true;
 
 ros::Time sendTime;
 
@@ -84,7 +83,7 @@ void printStats()
 
 void rttRxCallback(std_msgs::Float64MultiArray& msg)
 {
-  if (!firstRound && dataIndex < NUM_SAMPLES && msg.data[0] == currCount)
+  if (!firstRound && dataIndex < NUM_SAMPLES)
   {
     // Compute the time since the sequence number was sent.    
     double rtt = (ros::Time::now() - sendTime).toSec() * 1e6;
@@ -97,7 +96,7 @@ void rttRxCallback(std_msgs::Float64MultiArray& msg)
   }
 
   firstRound = false;
-  rcvdCount = msg.data[0]; // triggers the sending of the next RTT number
+  roundDone = true; // triggers the sending of the next RTT number
 }
 
 int main(int argc, char **argv)
@@ -120,6 +119,7 @@ int main(int argc, char **argv)
 
   ros::Rate loop_rate(1000);
 
+
   std_msgs::Float64MultiArray msg;
   std_msgs::MultiArrayDimension dim;
   dim.size = 3;
@@ -128,13 +128,11 @@ int main(int argc, char **argv)
   msg.layout.dim.push_back(dim);
   msg.data.resize(3);
 
-
   while (ros::ok())
   {
-    if (rcvdCount == currCount)
+    if (roundDone)
     {
-      msg.data[0] = ++currCount;
-
+      roundDone = false;
       sendTime = ros::Time::now();
       if (!pub.publish(msg))
       {

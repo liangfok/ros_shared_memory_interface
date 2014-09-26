@@ -164,7 +164,7 @@ namespace shared_memory_interface
       bool* shutdown_required = segment->find<bool>("shutdown_required").first;
       if(!shutdown_required)
       {
-        ROS_ID_ERROR_THROTTLED_STREAM("Couldn't find shutdown signal field!");
+        ROS_ID_WARN_THROTTLED_STREAM("Watchdog waiting for shutdown signal field...");
         continue;
       }
       if(*shutdown_required)
