@@ -32,7 +32,8 @@
 #include "ros/ros.h"
 #include "shared_memory_interface/shared_memory_publisher.hpp"
 #include "shared_memory_interface/shared_memory_subscriber.hpp"
-#include <std_msgs/Int64.h>
+#include "std_msgs/Float64MultiArray.h"
+#include "std_msgs/MultiArrayDimension.h"
 
 // #define NUM_SAMPLES 1000  // the number of samples over which to calculate the latency statistics
 // double data[NUM_SAMPLES];
@@ -81,9 +82,9 @@ void printStats()
   ros::shutdown();
 }
 
-void rttRxCallback(std_msgs::Int64& msg)
+void rttRxCallback(std_msgs::Float64MultiArray& msg)
 {
-  if (!firstRound && dataIndex < NUM_SAMPLES && msg.data == currCount)
+  if (!firstRound && dataIndex < NUM_SAMPLES && msg.data[0] == currCount)
   {
     // Compute the time since the sequence number was sent.    
     double rtt = (ros::Time::now() - sendTime).toSec() * 1e6;
@@ -96,7 +97,7 @@ void rttRxCallback(std_msgs::Int64& msg)
   }
 
   firstRound = false;
-  rcvdCount = msg.data; // triggers the sending of the next RTT number
+  rcvdCount = msg.data[0]; // triggers the sending of the next RTT number
 }
 
 int main(int argc, char **argv)
@@ -111,21 +112,28 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "master", ros::init_options::AnonymousName);
   ros::NodeHandle n;
 
-  shared_memory_interface::Publisher<std_msgs::Int64> pub;
+  shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub;
   pub.advertise("/rtt_tx");
 
-  shared_memory_interface::Subscriber<std_msgs::Int64> sub;
+  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub;
   sub.subscribe("/rtt_rx", boost::bind(&rttRxCallback, _1));
 
   ros::Rate loop_rate(1000);
 
-  std_msgs::Int64 msg;
+  std_msgs::Float64MultiArray msg;
+  std_msgs::MultiArrayDimension dim;
+  dim.size = 3;
+  dim.stride = 3;
+  msg.layout.data_offset = 0;
+  msg.layout.dim.push_back(dim);
+  msg.data.resize(3);
+
 
   while (ros::ok())
   {
     if (rcvdCount == currCount)
     {
-      msg.data = ++currCount;
+      msg.data[0] = ++currCount;
 
       sendTime = ros::Time::now();
       if (!pub.publish(msg))
