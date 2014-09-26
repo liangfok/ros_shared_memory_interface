@@ -39,6 +39,7 @@
 // double data[NUM_SAMPLES];
 
 int NUM_SAMPLES = 1000; //Default Value
+int SIZE_SAMPLES = 1; //Default Value
 double *data;
 
 int dataIndex = 0;
@@ -72,6 +73,7 @@ void printStats()
 
   ROS_INFO_STREAM("RTT Benchmark statistics:\n"
     << " - Num samples: " << NUM_SAMPLES << "\n"
+    << " - Size samples: "<<SIZE_SAMPLES << "\n"
     << " - Average (us): " << avg << "\n" 
     << " - Standard deviation: " << stdev << "\n"
     << " - Min (us): " << min << "\n"
@@ -101,12 +103,35 @@ void rttRxCallback(std_msgs::Float64MultiArray& msg)
 
 int main(int argc, char **argv)
 {
-  if (argc == 2)
+
+  if (argc != 1)
   {
-    // Change the NUM_SAMPLES by reading the argument
-    NUM_SAMPLES = atoll(argv[1]);
+    if (argc == 3)
+    {
+      // Change the NUM_SAMPLES by reading the argument
+      NUM_SAMPLES = atoll(argv[1]);
+      SIZE_SAMPLES = atoll(argv[2]);
+    }
+    else
+    {
+      std::cout<<"Accept TWO argument: NUM_SAMPLES & SIZE_SAMPLES"<<std::endl;
+      return 1;
+    }
   }
+  else
+  {
+    std::cout<<"Use default value: NUM_SAMPLES: "<<NUM_SAMPLES<<"; SIZE_SAMPLES: "<<SIZE_SAMPLES<<std::endl;
+  }
+
   data = new double[NUM_SAMPLES];
+
+  std_msgs::Float64MultiArray msg;
+  std_msgs::MultiArrayDimension dim;
+  dim.size = SIZE_SAMPLES;
+  dim.stride = SIZE_SAMPLES;
+  msg.layout.data_offset = 0;
+  msg.layout.dim.push_back(dim);
+  msg.data.resize(SIZE_SAMPLES);
 
   ros::init(argc, argv, "master", ros::init_options::AnonymousName);
   ros::NodeHandle n;
@@ -119,15 +144,6 @@ int main(int argc, char **argv)
 
   ros::Rate loop_rate(1000);
 
-
-  std_msgs::Float64MultiArray msg;
-  std_msgs::MultiArrayDimension dim;
-  dim.size = 3;
-  dim.stride = 3;
-  msg.layout.data_offset = 0;
-  msg.layout.dim.push_back(dim);
-  msg.data.resize(3);
-
   while (ros::ok())
   {
     if (roundDone)
@@ -138,12 +154,10 @@ int main(int argc, char **argv)
       {
         ROS_ERROR("Master: Failed to publish message. Aborting.");
         break;
-      }     
+      }
     }
-    
     loop_rate.sleep();
   }
-
   ros::spin();
   return 0;
 }
