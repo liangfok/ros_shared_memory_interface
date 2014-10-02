@@ -114,7 +114,10 @@ int main(int argc, char **argv)
     }
     else
     {
-      std::cout<<"Accept TWO argument: NUM_SAMPLES & SIZE_SAMPLES"<<std::endl;
+      std::cout << "Accept TWO argument: NUM_SAMPLES & SIZE_SAMPLES\n"
+                << "  - NUM_SAMPLES: The number of round trip times to measure.\n"
+                << "  - SIZE_SAMPLES: The number of Float64 values to transmit." 
+                << std::endl;
       return 1;
     }
   }
