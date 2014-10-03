@@ -32,18 +32,19 @@
 #include "ros/ros.h"
 #include "shared_memory_interface/shared_memory_publisher.hpp"
 #include "shared_memory_interface/shared_memory_subscriber.hpp"
-#include <std_msgs/Int64.h>
+#include "std_msgs/Float64MultiArray.h"
+#include "std_msgs/MultiArrayDimension.h"
 
 // #define NUM_SAMPLES 1000  // the number of samples over which to calculate the latency statistics
 // double data[NUM_SAMPLES];
 
 int NUM_SAMPLES = 1000; //Default Value
+int SIZE_SAMPLES = 1; //Default Value
 double *data;
 
 int dataIndex = 0;
 bool firstRound = true; // keep track of first round so that we can ignore it
-int currCount = 0;
-int rcvdCount = 0;
+bool roundDone = true;
 
 ros::Time sendTime;
 
@@ -72,6 +73,7 @@ void printStats()
 
   ROS_INFO_STREAM("RTT Benchmark statistics:\n"
     << " - Num samples: " << NUM_SAMPLES << "\n"
+    << " - Size samples: "<<SIZE_SAMPLES << "\n"
     << " - Average (us): " << avg << "\n" 
     << " - Standard deviation: " << stdev << "\n"
     << " - Min (us): " << min << "\n"
@@ -81,9 +83,9 @@ void printStats()
   ros::shutdown();
 }
 
-void rttRxCallback(std_msgs::Int64& msg)
+void rttRxCallback(std_msgs::Float64MultiArray& msg)
 {
-  if (!firstRound && dataIndex < NUM_SAMPLES && msg.data == currCount)
+  if (!firstRound && dataIndex < NUM_SAMPLES)
   {
     // Compute the time since the sequence number was sent.    
     double rtt = (ros::Time::now() - sendTime).toSec() * 1e6;
@@ -96,48 +98,69 @@ void rttRxCallback(std_msgs::Int64& msg)
   }
 
   firstRound = false;
-  rcvdCount = msg.data; // triggers the sending of the next RTT number
+  roundDone = true; // triggers the sending of the next RTT number
 }
 
 int main(int argc, char **argv)
 {
-  if (argc == 2)
+
+  if (argc != 1)
   {
-    // Change the NUM_SAMPLES by reading the argument
-    NUM_SAMPLES = atoll(argv[1]);
+    if (argc == 3)
+    {
+      // Change the NUM_SAMPLES by reading the argument
+      NUM_SAMPLES = atoll(argv[1]);
+      SIZE_SAMPLES = atoll(argv[2]);
+    }
+    else
+    {
+      std::cout << "Accept TWO argument: NUM_SAMPLES & SIZE_SAMPLES\n"
+                << "  - NUM_SAMPLES: The number of round trip times to measure.\n"
+                << "  - SIZE_SAMPLES: The number of Float64 values to transmit." 
+                << std::endl;
+      return 1;
+    }
   }
+  else
+  {
+    std::cout<<"Use default value: NUM_SAMPLES: "<<NUM_SAMPLES<<"; SIZE_SAMPLES: "<<SIZE_SAMPLES<<std::endl;
+  }
+
   data = new double[NUM_SAMPLES];
+
+  std_msgs::Float64MultiArray msg;
+  std_msgs::MultiArrayDimension dim;
+  dim.size = SIZE_SAMPLES;
+  dim.stride = SIZE_SAMPLES;
+  msg.layout.data_offset = 0;
+  msg.layout.dim.push_back(dim);
+  msg.data.resize(SIZE_SAMPLES);
 
   ros::init(argc, argv, "master", ros::init_options::AnonymousName);
   ros::NodeHandle n;
 
-  shared_memory_interface::Publisher<std_msgs::Int64> pub;
+  shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub;
   pub.advertise("/rtt_tx");
 
-  shared_memory_interface::Subscriber<std_msgs::Int64> sub;
+  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub;
   sub.subscribe("/rtt_rx", boost::bind(&rttRxCallback, _1));
 
   ros::Rate loop_rate(1000);
 
-  std_msgs::Int64 msg;
-
   while (ros::ok())
   {
-    if (rcvdCount == currCount)
+    if (roundDone)
     {
-      msg.data = ++currCount;
-
+      roundDone = false;
       sendTime = ros::Time::now();
       if (!pub.publish(msg))
       {
         ROS_ERROR("Master: Failed to publish message. Aborting.");
         break;
-      }     
+      }
     }
-    
     loop_rate.sleep();
   }
-
   ros::spin();
   return 0;
 }

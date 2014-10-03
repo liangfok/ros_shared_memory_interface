@@ -32,11 +32,11 @@
 #include "ros/ros.h"
 #include "shared_memory_interface/shared_memory_publisher.hpp"
 #include "shared_memory_interface/shared_memory_subscriber.hpp"
-#include <std_msgs/Int64.h>
+#include <std_msgs/Float64MultiArray.h>
 
-shared_memory_interface::Publisher<std_msgs::Int64> pub;
+shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub;
 
-void rttTxCallback(std_msgs::Int64& msg)
+void rttTxCallback(std_msgs::Float64MultiArray& msg)
 {
   pub.publish(msg);
 }
@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 
   pub.advertise("/rtt_rx");
 
-  shared_memory_interface::Subscriber<std_msgs::Int64> sub;
+  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub;
   sub.subscribe("/rtt_tx", boost::bind(&rttTxCallback, _1));
 
   ros::spin();
