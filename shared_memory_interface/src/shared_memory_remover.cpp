@@ -29,55 +29,20 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "shared_memory_interface/shared_memory_manager.hpp"
-#include <stdio.h>
-#include <pwd.h>
-
-namespace shared_memory_interface
-{
-  SharedMemoryManager::SharedMemoryManager(const ros::NodeHandle& nh) :
-      m_nh(nh)
-  {
-    m_nh.param("loop_rate", m_loop_rate, 10.0);
-    m_nh.param("interface_name", m_interface_name, std::string("smi"));
-    m_nh.param("memory_size", m_memory_size, 512.0 * 1024.0 * 1024.0); //param is double because ros apparently doesn't like unsigned int
-    if(!SharedMemoryTransport::createMemory(m_interface_name, (unsigned int) m_memory_size))
-    {
-      ROS_WARN("Another shared_memory_manager appears to be running. Shutting down!");
-      ros::shutdown();
-      m_memory_created = false;
-      return;
-    }
-    m_memory_created = true;
-  }
-
-  SharedMemoryManager::~SharedMemoryManager()
-  {
-    if(m_memory_created)
-    {
-      SharedMemoryTransport::destroyMemory(m_interface_name);
-    }
-  }
-
-  void SharedMemoryManager::spin()
-  {
-    ROS_INFO("SharedMemoryManager started.");
-    ros::Rate loop_rate(m_loop_rate);
-    while(ros::ok())
-    {
-      ros::spinOnce();
-      loop_rate.sleep();
-    }
-  }
-}
+#include "shared_memory_interface/shared_memory_transport.hpp"
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "shared_memory_manager", ros::init_options::AnonymousName);
-  ros::NodeHandle nh("~");
+  std::string interface_name = "smi";
 
-  shared_memory_interface::SharedMemoryManager node(nh);
-  node.spin();
+  if(argc >= 2)
+  {
+    interface_name = std::string(argv[1]);
+  }
+
+  std::cerr << "Removing shared interface \"" << interface_name << "\"" << std::endl;
+
+  shared_memory_interface::SharedMemoryTransport::destroyMemory(interface_name);
 
   return 0;
 }

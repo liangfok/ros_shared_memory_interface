@@ -50,7 +50,6 @@ namespace shared_memory_interface
     std::string m_interface_name;
     double m_memory_size;
     bool m_memory_created;
-    bool m_force_kill;
   };
 }
 #endif //SHARED_MEMORY_MANAGER_HPP
