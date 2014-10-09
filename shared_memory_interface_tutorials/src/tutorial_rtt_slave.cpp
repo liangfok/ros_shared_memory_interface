@@ -51,9 +51,10 @@ int main(int argc, char **argv)
   shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub(false);
   sub.subscribe("/rtt_tx", boost::bind(&rttTxCallback, _1));
 
+  ros::Rate loop_rate(0.1);
   while (ros::ok())
   {
-    boost::this_thread::sleep(boost::posix_time::millisec(10000));
+    loop_rate.sleep();
   }
   return 0;
 }

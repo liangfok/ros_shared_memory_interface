@@ -145,6 +145,7 @@ int main(int argc, char **argv)
   shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub(false);
   sub.subscribe("/rtt_rx", boost::bind(&rttRxCallback, _1));
 
+  ros::Rate loop_rate(1000);
   while (ros::ok())
   {
     if (roundDone)
@@ -157,7 +158,7 @@ int main(int argc, char **argv)
         break;
       }
     }
-    boost::this_thread::sleep(boost::posix_time::millisec(10));
+    loop_rate.sleep();
   }
   ros::spin();
   return 0;

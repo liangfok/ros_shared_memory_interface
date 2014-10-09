@@ -104,7 +104,6 @@ namespace shared_memory_interface
     std::string m_invalid_flag_name;
     std::string m_exists_flag_name;
 
-//    boost::interprocess::segment_manager<char, boost::interprocess::rbtree_best_fit<boost::interprocess::mutex_family>, boost::interprocess::iset_index> m_segment_manager;
     SMCharAllocator* m_string_allocator;
 
     uint32_t* m_buffer_sequence_id_ptr;

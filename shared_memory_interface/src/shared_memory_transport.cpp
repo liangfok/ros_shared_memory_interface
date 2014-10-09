@@ -224,6 +224,8 @@ namespace shared_memory_interface
     m_buffer_sequence_id_name = m_field_name + "_buffer_sequence_id";
     m_invalid_flag_name = m_field_name + "_invalid";
     m_exists_flag_name = m_field_name + "_exists";
+
+    m_string_allocator = new SMCharAllocator(segment->get_segment_manager());
     m_initialized = true;
 
     if(create_field)
@@ -250,8 +252,6 @@ namespace shared_memory_interface
     m_even_data_ptr = segment->find<SMString>(m_even_buffer_name.c_str()).first;
     m_odd_data_ptr = segment->find<SMString>(m_odd_buffer_name.c_str()).first;
     m_last_read_buffer_sequence_id = (*m_buffer_sequence_id_ptr) - 1;
-
-    m_string_allocator = new SMCharAllocator(segment->get_segment_manager());
 
     m_watchdog_thread = new boost::thread(boost::bind(&SharedMemoryTransport::watchdogFunction, this));
 
