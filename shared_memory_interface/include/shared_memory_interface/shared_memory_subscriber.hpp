@@ -40,9 +40,10 @@ namespace shared_memory_interface
   class Subscriber
   {
   public:
-    Subscriber(bool listen_to_rostopic = true)
+    Subscriber(bool listen_to_rostopic = true, bool use_polling = true)
     {
       m_listen_to_rostopic = listen_to_rostopic;
+      m_use_polling = use_polling;
       m_callback_thread = NULL;
     }
 
@@ -115,6 +116,7 @@ namespace shared_memory_interface
     std::string m_full_ros_topic_path;
 
     bool m_listen_to_rostopic;
+    bool m_use_polling;
     ros::Subscriber m_subscriber;
 
     boost::thread* m_callback_thread;
@@ -149,7 +151,13 @@ namespace shared_memory_interface
             ROS_WARN("Shared memory transport was shut down. Stopping callback thread!");
             return;
           }
-          if(smt->awaitNewDataPolled(serialized_data))
+          if(m_use_polling && smt->awaitNewDataPolled(serialized_data))
+          {
+            ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
+            ros::serialization::deserialize(istream, msg);
+            callback(msg);
+          }
+          if(!m_use_polling && smt->awaitNewData(serialized_data))
           {
             ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
             ros::serialization::deserialize(istream, msg);

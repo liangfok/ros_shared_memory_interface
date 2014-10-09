@@ -38,7 +38,7 @@
 // #define NUM_SAMPLES 1000  // the number of samples over which to calculate the latency statistics
 // double data[NUM_SAMPLES];
 
-int NUM_SAMPLES = 1000; //Default Value
+int NUM_SAMPLES = 10000; //Default Value
 int SIZE_SAMPLES = 1; //Default Value
 double *data;
 

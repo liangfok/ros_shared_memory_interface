@@ -222,6 +222,8 @@ namespace shared_memory_interface
     m_even_buffer_name = m_field_name + "_even";
     m_odd_buffer_name = m_field_name + "_odd";
     m_buffer_sequence_id_name = m_field_name + "_buffer_sequence_id";
+    m_condition_name = m_field_name + "_condition";
+    m_condition_mutex_name = m_field_name + "_condition_mutex";
     m_invalid_flag_name = m_field_name + "_invalid";
     m_exists_flag_name = m_field_name + "_exists";
 
@@ -251,6 +253,8 @@ namespace shared_memory_interface
     m_invalid_ptr = segment->find<bool>(m_invalid_flag_name.c_str()).first;
     m_even_data_ptr = segment->find<SMString>(m_even_buffer_name.c_str()).first;
     m_odd_data_ptr = segment->find<SMString>(m_odd_buffer_name.c_str()).first;
+    m_condition_ptr = segment->find<boost::interprocess::interprocess_condition>(m_condition_name.c_str()).first;
+    m_condition_mutex_ptr = segment->find<boost::interprocess::interprocess_mutex>(m_condition_mutex_name.c_str()).first;
     m_last_read_buffer_sequence_id = (*m_buffer_sequence_id_ptr) - 1;
 
     m_watchdog_thread = new boost::thread(boost::bind(&SharedMemoryTransport::watchdogFunction, this));
@@ -260,19 +264,6 @@ namespace shared_memory_interface
     ROS_ID_INFO_STREAM("Connected to " << interface_name << ":" << field_name << ".");
     PRINT_TRACE_EXIT
   }
-
-
-  /*
-   *
-   * ‘boost::container::basic_string<char, std::char_traits<char>, boost::interprocess::allocator<char, boost::interprocess::segment_manager<char, boost::interprocess::rbtree_best_fit<boost::interprocess::mutex_family>, boost::interprocess::iset_index> > >::basic_string(std::basic_string<char>::iterator, std::basic_string<char>::iterator, const SMCharAllocator*&)’
-/usr/include/boost/interprocess/containers/container/string.hpp:582:4: note: template<class InputIterator> boost::container::basic_string::basic_string(InputIterator, InputIterator, const allocator_type&)
-/usr/include/boost/interprocess/containers/container/string.hpp:571:4: note: boost::container::basic_string<CharT, Traits, Alloc>::basic_string(boost::container::basic_string<CharT, Traits, Alloc>::size_type, CharT, const allocator_type&) [with CharT = char, Traits = std::char_traits<char>, A = boost::interprocess::allocator<char, boost::interprocess::segment_manager<char, boost::interprocess::rbtree_best_fit<boost::interprocess::mutex_family>, boost::interprocess::iset_index> >, boost::container::basic_string<CharT, Traits, Alloc>::size_type = long unsigned int, boost::container::basic_string<CharT, Traits, Alloc>::allocator_type = boost::interprocess::allocator<char, boost::interprocess::segment_manager<char, boost::interprocess::rbtree_best_fit<boost::interprocess::mutex_family>, boost::interprocess::iset_index> >]
-/usr/include/boost/interprocess/containers/container/string.hpp:571:4: note:   no known conversion for argument 1 from ‘std::basic_string<char>::iterator {aka __gnu_cxx::__normal_iterator<char*, std::basic_string<char> >}’ to ‘long unsigned int’
-   *
-   *
-   *
-   */
-
 
   bool SharedMemoryTransport::createField()
   {
@@ -285,6 +276,9 @@ namespace shared_memory_interface
       segment->construct<SMString>(m_even_buffer_name.c_str())(*m_string_allocator);
       segment->construct<SMString>(m_odd_buffer_name.c_str())(*m_string_allocator);
       segment->construct<uint32_t>(m_buffer_sequence_id_name.c_str())(0);
+
+      segment->construct<boost::interprocess::interprocess_condition>(m_condition_name.c_str())(); //(segment->get_segment_manager());
+      segment->construct<boost::interprocess::interprocess_mutex>(m_condition_mutex_name.c_str())(); //(segment->get_segment_manager());
 
       segment->construct<bool>(m_invalid_flag_name.c_str())(true); //field is invalid until someone writes actual data to it
       segment->construct<bool>(m_exists_flag_name.c_str())(true); //once we construct this, everyone will assume the field exists
@@ -359,6 +353,7 @@ namespace shared_memory_interface
     *data_ptr = SMString(data.begin(), data.end(), *m_string_allocator);
     *m_invalid_ptr = false;
     *m_buffer_sequence_id_ptr = (*m_buffer_sequence_id_ptr) + 1;
+    m_condition_ptr->notify_all();
 
     PRINT_TRACE_EXIT
     return true;
@@ -421,37 +416,32 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::awaitNewData(std::string& data, double timeout)
   {
     PRINT_TRACE_ENTER
-    TEST_INITIALIZED
-    ROS_ID_ERROR_STREAM("AWAIT NEW DATA DOESN'T WORK YET! USE THE POLLED VERSION FOR NOW!");
-    PRINT_TRACE_EXIT
-    return false;
+    TEST_CONNECTED
 
-    //TODO: finish this
-
-//    if(timeout == 0)
-//    {
-//      PRINT_TRACE_EXIT
-//      return hasData();
-//    }
-//
-//    boost::interprocess::interprocess_condition* condition = segment->find<boost::interprocess::interprocess_condition>(m_condition_name.c_str()).first;
-//    boost::interprocess::interprocess_mutex* mutex = segment->find<boost::interprocess::interprocess_mutex>(m_condition_mutex_name.c_str()).first;
-//    (*mutex).lock();
-//    if(timeout < 0)
-//    {
-//      condition->wait(*mutex);
-//    }
-//    else
-//    {
-//      boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(timeout);
-//      if(!condition->timed_wait(*mutex, timeout_time))
-//      {
-//        PRINT_TRACE_EXIT
-//        return false;
-//      }
-//    }
-//    PRINT_TRACE_EXIT
-//    return true;
+    if(timeout == 0)
+    {
+      PRINT_TRACE_EXIT
+      return getData(data);
+    }
+    else if(timeout < 0)
+    {
+      boost::interprocess::scoped_lock<boost::interprocess::interprocess_mutex> lock(*m_condition_mutex_ptr);
+      m_condition_ptr->wait(lock);
+      lock.unlock();
+      return getData(data);
+    }
+    else
+    {
+      boost::interprocess::scoped_lock<boost::interprocess::interprocess_mutex> lock(*m_condition_mutex_ptr);
+      boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(timeout);
+      if(!m_condition_ptr->timed_wait(lock, timeout_time))
+      {
+        PRINT_TRACE_EXIT
+        return false;
+      }
+      lock.unlock();
+      return getData(data);
+    }
   }
 
   std::string SharedMemoryTransport::getFieldName()
