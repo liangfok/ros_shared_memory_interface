@@ -61,7 +61,7 @@ namespace shared_memory_interface
     {
       m_interface_name = shared_memory_interface_name;
       configureTopicPaths(m_interface_name, topic_name, m_full_ros_topic_path, m_full_topic_path);
-      m_smt.configure(m_interface_name, m_full_topic_path);
+      m_smt.configure(m_interface_name, m_full_topic_path, false);
 
       if(m_listen_to_rostopic)
       {

@@ -34,7 +34,7 @@
 #include "shared_memory_interface/shared_memory_subscriber.hpp"
 #include <std_msgs/Float64MultiArray.h>
 
-shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub;
+shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub(false);
 
 void rttTxCallback(std_msgs::Float64MultiArray& msg)
 {
@@ -48,9 +48,12 @@ int main(int argc, char **argv)
 
   pub.advertise("/rtt_rx");
 
-  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub;
+  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub(false);
   sub.subscribe("/rtt_tx", boost::bind(&rttTxCallback, _1));
 
-  ros::spin();
+  while (ros::ok())
+  {
+    boost::this_thread::sleep(boost::posix_time::millisec(10000));
+  }
   return 0;
 }

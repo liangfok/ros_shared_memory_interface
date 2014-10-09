@@ -139,13 +139,11 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "master", ros::init_options::AnonymousName);
   ros::NodeHandle n;
 
-  shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub;
+  shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub(false);
   pub.advertise("/rtt_tx");
 
-  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub;
+  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub(false);
   sub.subscribe("/rtt_rx", boost::bind(&rttRxCallback, _1));
-
-  ros::Rate loop_rate(1000);
 
   while (ros::ok())
   {
@@ -159,7 +157,7 @@ int main(int argc, char **argv)
         break;
       }
     }
-    loop_rate.sleep();
+    boost::this_thread::sleep(boost::posix_time::millisec(10));
   }
   ros::spin();
   return 0;

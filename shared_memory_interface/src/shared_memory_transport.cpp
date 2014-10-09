@@ -46,6 +46,7 @@ namespace shared_memory_interface
 #define ROS_ID_WARN_STREAM(...) ROS_WARN_STREAM("SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
 #define ROS_ID_ERROR_STREAM(...) ROS_ERROR_STREAM("SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
 #define TEST_INITIALIZED if(!m_initialized) {ROS_ID_ERROR_STREAM("Tried to call " <<__func__ << " on an uninitialized shared memory transport!"); return false;}
+#define TEST_CONNECTED if(!m_connected) {ROS_ID_ERROR_STREAM("Tried to call " <<__func__ << " on an unconnected shared memory transport!"); return false;}
 #define CATCH_SHUTDOWN_SIGNAL if(!m_initialized) {ROS_ID_DEBUG_STREAM("Caught shutdown signal in function " <<__func__ << "!"); return false;}
 
   boost::interprocess::permissions unrestricted()
@@ -159,14 +160,20 @@ namespace shared_memory_interface
 
   void SharedMemoryTransport::watchdogFunction()
   {
+    bool* shutdown_required = NULL;
     while(ros::ok())
     {
-      bool* shutdown_required = segment->find<bool>("shutdown_required").first;
+      shutdown_required = segment->find<bool>("shutdown_required").first;
       if(!shutdown_required)
       {
         ROS_ID_WARN_THROTTLED_STREAM("Watchdog waiting for shutdown signal field...");
         continue;
       }
+      boost::this_thread::interruption_point();
+    }
+
+    while(ros::ok())
+    {
       if(*shutdown_required)
       {
         m_initialized = false;
@@ -186,7 +193,7 @@ namespace shared_memory_interface
     return m_initialized;
   }
 
-  void SharedMemoryTransport::configure(std::string interface_name, std::string field_name)
+  void SharedMemoryTransport::configure(std::string interface_name, std::string field_name, bool create_field)
   {
     PRINT_TRACE_ENTER
     if(m_initialized)
@@ -216,22 +223,37 @@ namespace shared_memory_interface
     m_odd_buffer_name = m_field_name + "_odd";
     m_buffer_sequence_id_name = m_field_name + "_buffer_sequence_id";
     m_invalid_flag_name = m_field_name + "_invalid";
-    m_condition_name = m_field_name + "_condition";
-    m_condition_mutex_name = m_field_name + "_condition_mutex";
     m_exists_flag_name = m_field_name + "_exists";
-
-    m_watchdog_thread = new boost::thread(boost::bind(&SharedMemoryTransport::watchdogFunction, this));
-
     m_initialized = true;
 
-    if(fieldExists())
+    if(create_field)
     {
-      m_last_read_buffer_sequence_id = (*segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first) - 1;
+      if(segment->find<bool>(m_exists_flag_name.c_str()).first != NULL) //check to see if someone else created the field
+      {
+        ROS_ID_WARN_STREAM("Using existing shared memory field for " << m_field_name);
+      }
+      else
+      {
+        createField();
+      }
     }
     else
     {
-      m_last_read_buffer_sequence_id = 0;
+      while(segment->find<bool>(m_exists_flag_name.c_str()).first == NULL)
+      {
+        ROS_ID_WARN_THROTTLED_STREAM("Waiting for field \"" << m_field_name << "\" to exist");
+      }
     }
+
+    m_buffer_sequence_id_ptr = segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first;
+    m_invalid_ptr = segment->find<bool>(m_invalid_flag_name.c_str()).first;
+    m_even_data_ptr = segment->find<SMString>(m_even_buffer_name.c_str()).first;
+    m_odd_data_ptr = segment->find<SMString>(m_odd_buffer_name.c_str()).first;
+    m_last_read_buffer_sequence_id = (*m_buffer_sequence_id_ptr) - 1;
+
+    m_watchdog_thread = new boost::thread(boost::bind(&SharedMemoryTransport::watchdogFunction, this));
+
+    m_connected = true;
 
     ROS_ID_INFO_STREAM("Connected to " << interface_name << ":" << field_name << ".");
     PRINT_TRACE_EXIT
@@ -241,25 +263,15 @@ namespace shared_memory_interface
   {
     PRINT_TRACE_ENTER
     TEST_INITIALIZED
-    if(fieldExists()) //check to see if someone else created the field
-    {
-      ROS_ID_WARN_STREAM("Using existing shared memory field for " << m_field_name);
-      PRINT_TRACE_EXIT
-      return true;
-    }
 
     try
     {
       ROS_ID_INFO_STREAM("Creating new shared memory field for " << m_field_name);
       segment->construct<SMString>(m_even_buffer_name.c_str())(segment->get_segment_manager());
       segment->construct<SMString>(m_odd_buffer_name.c_str())(segment->get_segment_manager());
-
       segment->construct<uint32_t>(m_buffer_sequence_id_name.c_str())(0);
+
       segment->construct<bool>(m_invalid_flag_name.c_str())(true); //field is invalid until someone writes actual data to it
-
-//      segment->construct<boost::interprocess::interprocess_condition>(m_condition_name.c_str())(segment->get_segment_manager());
-//      segment->construct<boost::interprocess::interprocess_mutex>(m_condition_mutex_name.c_str())(segment->get_segment_manager());
-
       segment->construct<bool>(m_exists_flag_name.c_str())(true); //once we construct this, everyone will assume the field exists
     }
     catch(boost::interprocess::interprocess_exception &ex)
@@ -281,26 +293,34 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::getData(std::string& data)
   {
     PRINT_TRACE_ENTER
-    TEST_INITIALIZED
     if(!hasData())
     {
       PRINT_TRACE_EXIT
       return false;
     }
 
+    int starvation_counter = 0;
     while(ros::ok())
     {
-      uint32_t buffer_sequence_id = *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first;
-      std::string read_buffer_name = isEven(buffer_sequence_id)? m_even_buffer_name : m_odd_buffer_name;
-      SMString* field_data = segment->find<SMString>(read_buffer_name.c_str()).first;
+      uint32_t buffer_sequence_id = *m_buffer_sequence_id_ptr;
+      SMString* data_ptr = isEven(buffer_sequence_id)? m_even_data_ptr : m_odd_data_ptr;
       try
       {
-        data = std::string(field_data->begin(), field_data->end());
-        if(buffer_sequence_id == *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first) //no one wrote to the buffer while we were trying to read it
+        data = std::string(data_ptr->begin(), data_ptr->end());
+        if(buffer_sequence_id == *m_buffer_sequence_id_ptr) //no one wrote to the buffer while we were trying to read it
         {
           m_last_read_buffer_sequence_id = buffer_sequence_id;
+          if(starvation_counter != 0)
+          {
+            std::cerr << starvation_counter << " starvations" << std::endl;
+          }
+
           PRINT_TRACE_EXIT
           return true;
+        }
+        else
+        {
+          starvation_counter++;
         }
       }
       catch(std::exception& ex) //catch std::string issues that happen during the copy
@@ -308,7 +328,6 @@ namespace shared_memory_interface
         std::cerr << ex.what() << std::endl;
       }
 
-      //TODO: add counter to detect starvation?
       boost::this_thread::interruption_point();
     }
 
@@ -319,40 +338,22 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::setData(std::string data)
   {
     PRINT_TRACE_ENTER
-    TEST_INITIALIZED
-    if(!fieldExists())
-    {
-      PRINT_TRACE_EXIT
-      return false;
-    }
+    TEST_CONNECTED
 
-    uint32_t* buffer_sequence_id = segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first;
-    std::string write_buffer_name = isEven(*buffer_sequence_id)? m_odd_buffer_name : m_even_buffer_name;
-
-    *segment->find<SMString>(write_buffer_name.c_str()).first = SMString(data.begin(), data.end(), segment->get_segment_manager());
-    *segment->find<bool>(m_invalid_flag_name.c_str()).first = false;
-    *buffer_sequence_id = (*buffer_sequence_id) + 1;
-//    segment->find<boost::interprocess::interprocess_condition>(m_condition_name.c_str()).first->notify_all();
-//    ROS_ID_INFO_STREAM("Wrote data to " << m_field_name << "! bs:" << *buffer_sequence_id << " ptr: " << buffer_sequence_id);
+    SMString* data_ptr = isEven(*m_buffer_sequence_id_ptr)? m_odd_data_ptr : m_even_data_ptr;
+    *data_ptr = SMString(data.begin(), data.end(), segment->get_segment_manager());
+    *m_invalid_ptr = false;
+    *m_buffer_sequence_id_ptr = (*m_buffer_sequence_id_ptr) + 1;
 
     PRINT_TRACE_EXIT
     return true;
   }
 
-  bool SharedMemoryTransport::fieldExists()
-  {
-    PRINT_TRACE_ENTER
-    TEST_INITIALIZED
-    bool exists = (segment->find<bool>(m_exists_flag_name.c_str()).first != NULL);
-    PRINT_TRACE_EXIT
-    return exists;
-  }
-
   bool SharedMemoryTransport::hasData()
   {
     PRINT_TRACE_ENTER
-    TEST_INITIALIZED
-    bool has_data = fieldExists() && !(*segment->find<bool>(m_invalid_flag_name.c_str()).first);
+    TEST_CONNECTED
+    bool has_data = !(*m_invalid_ptr);
     PRINT_TRACE_EXIT
     return has_data;
   }
@@ -360,7 +361,7 @@ namespace shared_memory_interface
   bool SharedMemoryTransport::awaitNewDataPolled(std::string& data, double timeout)
   {
     PRINT_TRACE_ENTER
-    TEST_INITIALIZED
+    TEST_CONNECTED
 
     if(timeout == 0)
     {
@@ -369,7 +370,7 @@ namespace shared_memory_interface
     }
     else
     {
-      while(ros::ok() && !hasData()) //wait for the field to at least have something
+      while(ros::ok() && (*m_invalid_ptr)) //wait for the field to at least have something
       {
         CATCH_SHUTDOWN_SIGNAL
         ROS_ID_WARN_THROTTLED_STREAM("Waiting for field " << m_field_name << " to become valid.");
@@ -377,10 +378,8 @@ namespace shared_memory_interface
       }
 
       boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(timeout);
-      while(ros::ok() && (m_last_read_buffer_sequence_id == *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first)) //wait for the selector to change
+      while(ros::ok() && (m_last_read_buffer_sequence_id == *m_buffer_sequence_id_ptr)) //wait for the selector to change
       {
-//        ROS_ID_DEBUG_STREAM("Trying to read data from " << m_field_name << "! lrbs:" << m_last_read_buffer_sequence_id << " bs:" << *segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first);
-
         CATCH_SHUTDOWN_SIGNAL
         if(timeout < 0)
         {

@@ -79,14 +79,13 @@ namespace shared_memory_interface
     static void destroyMemory(std::string interface_name);
 
     bool initialized();
-    void configure(std::string interface_name, std::string field_name);
+    void configure(std::string interface_name, std::string field_name, bool create_field=false);
     bool createField();
     bool getData(std::string& data);
     bool setData(std::string data);
 
     std::string getFieldName();
 
-    bool fieldExists();
     bool hasData(); //returns true if the field has already been configured
     bool awaitNewDataPolled(std::string& data, double timeout = -1);
     bool awaitNewData(std::string& data, double timeout = -1);
@@ -97,14 +96,18 @@ namespace shared_memory_interface
     void watchdogFunction();
 
     bool m_initialized;
+    bool m_connected;
     std::string m_field_name;
     std::string m_even_buffer_name;
     std::string m_odd_buffer_name;
     std::string m_buffer_sequence_id_name;
     std::string m_invalid_flag_name;
-    std::string m_condition_name;
-    std::string m_condition_mutex_name;
     std::string m_exists_flag_name;
+
+    uint32_t* m_buffer_sequence_id_ptr;
+    bool* m_invalid_ptr;
+    SMString* m_even_data_ptr;
+    SMString* m_odd_data_ptr;
 
     uint32_t m_last_read_buffer_sequence_id;
   };
