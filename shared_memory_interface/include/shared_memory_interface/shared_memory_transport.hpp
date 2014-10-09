@@ -79,7 +79,7 @@ namespace shared_memory_interface
     static void destroyMemory(std::string interface_name);
 
     bool initialized();
-    void configure(std::string interface_name, std::string field_name, bool create_field=false);
+    void configure(std::string interface_name, std::string field_name, bool create_field = false);
     bool createField();
     bool getData(std::string& data);
     bool setData(std::string data);
@@ -103,6 +103,9 @@ namespace shared_memory_interface
     std::string m_buffer_sequence_id_name;
     std::string m_invalid_flag_name;
     std::string m_exists_flag_name;
+
+//    boost::interprocess::segment_manager<char, boost::interprocess::rbtree_best_fit<boost::interprocess::mutex_family>, boost::interprocess::iset_index> m_segment_manager;
+    SMCharAllocator* m_string_allocator;
 
     uint32_t* m_buffer_sequence_id_ptr;
     bool* m_invalid_ptr;

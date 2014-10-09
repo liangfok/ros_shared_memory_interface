@@ -251,6 +251,8 @@ namespace shared_memory_interface
     m_odd_data_ptr = segment->find<SMString>(m_odd_buffer_name.c_str()).first;
     m_last_read_buffer_sequence_id = (*m_buffer_sequence_id_ptr) - 1;
 
+    m_string_allocator = new SMCharAllocator(segment->get_segment_manager());
+
     m_watchdog_thread = new boost::thread(boost::bind(&SharedMemoryTransport::watchdogFunction, this));
 
     m_connected = true;
@@ -258,6 +260,19 @@ namespace shared_memory_interface
     ROS_ID_INFO_STREAM("Connected to " << interface_name << ":" << field_name << ".");
     PRINT_TRACE_EXIT
   }
+
+
+  /*
+   *
+   * ‘boost::container::basic_string<char, std::char_traits<char>, boost::interprocess::allocator<char, boost::interprocess::segment_manager<char, boost::interprocess::rbtree_best_fit<boost::interprocess::mutex_family>, boost::interprocess::iset_index> > >::basic_string(std::basic_string<char>::iterator, std::basic_string<char>::iterator, const SMCharAllocator*&)’
+/usr/include/boost/interprocess/containers/container/string.hpp:582:4: note: template<class InputIterator> boost::container::basic_string::basic_string(InputIterator, InputIterator, const allocator_type&)
+/usr/include/boost/interprocess/containers/container/string.hpp:571:4: note: boost::container::basic_string<CharT, Traits, Alloc>::basic_string(boost::container::basic_string<CharT, Traits, Alloc>::size_type, CharT, const allocator_type&) [with CharT = char, Traits = std::char_traits<char>, A = boost::interprocess::allocator<char, boost::interprocess::segment_manager<char, boost::interprocess::rbtree_best_fit<boost::interprocess::mutex_family>, boost::interprocess::iset_index> >, boost::container::basic_string<CharT, Traits, Alloc>::size_type = long unsigned int, boost::container::basic_string<CharT, Traits, Alloc>::allocator_type = boost::interprocess::allocator<char, boost::interprocess::segment_manager<char, boost::interprocess::rbtree_best_fit<boost::interprocess::mutex_family>, boost::interprocess::iset_index> >]
+/usr/include/boost/interprocess/containers/container/string.hpp:571:4: note:   no known conversion for argument 1 from ‘std::basic_string<char>::iterator {aka __gnu_cxx::__normal_iterator<char*, std::basic_string<char> >}’ to ‘long unsigned int’
+   *
+   *
+   *
+   */
+
 
   bool SharedMemoryTransport::createField()
   {
@@ -267,8 +282,8 @@ namespace shared_memory_interface
     try
     {
       ROS_ID_INFO_STREAM("Creating new shared memory field for " << m_field_name);
-      segment->construct<SMString>(m_even_buffer_name.c_str())(segment->get_segment_manager());
-      segment->construct<SMString>(m_odd_buffer_name.c_str())(segment->get_segment_manager());
+      segment->construct<SMString>(m_even_buffer_name.c_str())(*m_string_allocator);
+      segment->construct<SMString>(m_odd_buffer_name.c_str())(*m_string_allocator);
       segment->construct<uint32_t>(m_buffer_sequence_id_name.c_str())(0);
 
       segment->construct<bool>(m_invalid_flag_name.c_str())(true); //field is invalid until someone writes actual data to it
@@ -341,7 +356,7 @@ namespace shared_memory_interface
     TEST_CONNECTED
 
     SMString* data_ptr = isEven(*m_buffer_sequence_id_ptr)? m_odd_data_ptr : m_even_data_ptr;
-    *data_ptr = SMString(data.begin(), data.end(), segment->get_segment_manager());
+    *data_ptr = SMString(data.begin(), data.end(), *m_string_allocator);
     *m_invalid_ptr = false;
     *m_buffer_sequence_id_ptr = (*m_buffer_sequence_id_ptr) + 1;
 
