@@ -37,6 +37,7 @@
 #define WRITE_TO_ROS_TOPIC false
 #define LISTEN_TO_ROS_TOPIC false
 #define USE_POLLING true
+
 shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub(WRITE_TO_ROS_TOPIC);
 
 void rttTxCallback(std_msgs::Float64MultiArray& msg)
