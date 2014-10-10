@@ -34,7 +34,10 @@
 #include "shared_memory_interface/shared_memory_subscriber.hpp"
 #include <std_msgs/Float64MultiArray.h>
 
-shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub(false);
+#define WRITE_TO_ROS_TOPIC false
+#define LISTEN_TO_ROS_TOPIC false
+#define USE_POLLING false
+shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub(WRITE_TO_ROS_TOPIC);
 
 void rttTxCallback(std_msgs::Float64MultiArray& msg)
 {
@@ -48,7 +51,9 @@ int main(int argc, char **argv)
 
   pub.advertise("/rtt_rx");
 
-  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub(false);
+  bool listenROSTopic = false;
+  bool usePolling = true;
+  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub(LISTEN_TO_ROS_TOPIC, USE_POLLING);
   sub.subscribe("/rtt_tx", boost::bind(&rttTxCallback, _1));
 
   ros::Rate loop_rate(0.1);
