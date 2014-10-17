@@ -319,7 +319,7 @@ namespace shared_memory_interface
         if(buffer_sequence_id == *m_buffer_sequence_id_ptr) //no one wrote to the buffer while we were trying to read it
         {
           m_last_read_buffer_sequence_id = buffer_sequence_id;
-          if(starvation_counter != 0)
+          if(starvation_counter > 2)
           {
             std::cerr << starvation_counter << " starvations" << std::endl;
           }
