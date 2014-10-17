@@ -79,7 +79,9 @@ namespace shared_memory_interface
     static void destroyMemory(std::string interface_name);
 
     bool initialized();
+    bool connected();
     void configure(std::string interface_name, std::string field_name, bool create_field = false);
+    bool connect(double timeout = 0.0);
     bool createField();
     bool getData(std::string& data);
     bool setData(std::string data);
@@ -97,6 +99,7 @@ namespace shared_memory_interface
 
     bool m_initialized;
     bool m_connected;
+    std::string m_interface_name;
     std::string m_field_name;
     std::string m_even_buffer_name;
     std::string m_odd_buffer_name;

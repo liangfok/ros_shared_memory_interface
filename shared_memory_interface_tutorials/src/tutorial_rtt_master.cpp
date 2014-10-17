@@ -142,7 +142,7 @@ int main(int argc, char **argv)
   shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub(false);
   pub.advertise("/rtt_tx");
 
-  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub(false);
+  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub(false, true);
   sub.subscribe("/rtt_rx", boost::bind(&rttRxCallback, _1));
 
   ros::Rate loop_rate(1000);

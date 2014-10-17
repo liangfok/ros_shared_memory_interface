@@ -40,7 +40,7 @@ namespace shared_memory_interface
   class Subscriber
   {
   public:
-    Subscriber(bool listen_to_rostopic = true, bool use_polling = true)
+    Subscriber(bool listen_to_rostopic = true, bool use_polling = false)
     {
       m_listen_to_rostopic = listen_to_rostopic;
       m_use_polling = use_polling;
@@ -64,27 +64,39 @@ namespace shared_memory_interface
       configureTopicPaths(m_interface_name, topic_name, m_full_ros_topic_path, m_full_topic_path);
       m_smt.configure(m_interface_name, m_full_topic_path, false);
 
+      bool success = true;
+      if(!m_smt.connect(1.0))
+      {
+        ROS_WARN("Couldn't connect to %s via shared memory! Will try again later!", m_full_ros_topic_path.c_str());
+        success = false;
+      }
+
       if(m_listen_to_rostopic)
       {
         ros::NodeHandle nh("~");
         m_subscriber = nh.subscribe<T>(m_full_ros_topic_path, 1, boost::bind(&Subscriber<T>::blankCallback, this, _1));
       }
 
-      return true;
+      return success;
     }
 
     bool subscribe(std::string topic_name, boost::function<void(T&)> callback, std::string shared_memory_interface_name = "smi")
     {
-      subscribe(topic_name, shared_memory_interface_name);
+      bool success = subscribe(topic_name, shared_memory_interface_name);
       m_callback_thread = new boost::thread(boost::bind(&Subscriber<T>::callbackThreadFunction, this, &m_smt, callback));
-      return true;
+      return success;
     }
 
     bool waitForMessage(T& msg, double timeout = -1)
     {
       if(!m_smt.initialized())
       {
-        ROS_WARN("Tried to waitForMessage on an invalid shared memory transport!");
+        ROS_DEBUG("Tried to use an uninitialized shared memory transport!");
+        return false;
+      }
+      if(!m_smt.connected() && !m_smt.connect(timeout))
+      {
+        ROS_DEBUG("Tried to use an unconnected shared memory transport and reconnection attempt failed!");
         return false;
       }
       std::string serialized_data;
@@ -100,11 +112,6 @@ namespace shared_memory_interface
 
     bool getCurrentMessage(T& msg)
     {
-      if(!m_smt.initialized())
-      {
-        ROS_WARN("Tried to getCurrentMessage on an invalid shared memory transport!");
-        return false;
-      }
       return waitForMessage(msg, 0);
     }
 
@@ -126,14 +133,24 @@ namespace shared_memory_interface
       T msg;
       std::string serialized_data;
 
-      while(ros::ok() && !smt->hasData()) //wait for the field to at least have something
+      ros::Rate loop_rate(10.0);
+      while(ros::ok()) //wait for the field to at least have something
       {
         if(!smt->initialized())
         {
-          ROS_WARN("Shared memory transport was shut down. Stopping callback thread!");
+          ROS_WARN("Shared memory transport was shut down while we were waiting for connections. Stopping callback thread!");
           return;
         }
-        ROS_WARN_STREAM_THROTTLE(1.0, "Waiting for field " << smt->getFieldName() << " to become valid.");
+        if(!smt->connected())
+        {
+          smt->connect();
+        }
+        else if(smt->hasData())
+        {
+          break;
+        }
+        ROS_WARN_STREAM_THROTTLE(1.0, "Trying to connect to field " << smt->getFieldName() << "...");
+        loop_rate.sleep();
         boost::this_thread::interruption_point();
       }
 

@@ -54,6 +54,7 @@ namespace shared_memory_interface
       m_interface_name = shared_memory_interface_name;
       configureTopicPaths(m_interface_name, topic_name, m_full_ros_topic_path, m_full_topic_path);
       m_smt.configure(m_interface_name, m_full_topic_path, true);
+      m_smt.connect();
 
       if(m_write_to_rostopic)
       {
@@ -64,9 +65,9 @@ namespace shared_memory_interface
 
     bool publish(T& data)
     {
-      if(!m_smt.initialized())
+      if(!m_smt.connected())
       {
-        ROS_WARN("Tried to publish on an invalid shared memory transport!");
+        ROS_WARN("Tried to publish on an unconfigured shared memory publisher!");
         return false;
       }
       std::string serialized;

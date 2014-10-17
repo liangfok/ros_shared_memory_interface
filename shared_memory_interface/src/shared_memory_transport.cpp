@@ -130,7 +130,7 @@ namespace shared_memory_interface
     }
     catch(boost::interprocess::interprocess_exception &ex)
     {
-      std::cerr << ex.what() << std::endl;
+      std::cerr << "Exception occurred during destroyMemory: " << ex.what() << std::endl;
     }
     boost::interprocess::shared_memory_object::remove(interface_name.c_str());
     //NOTE: shared memory will be unlinked, not destroyed. Anyone who already has the space mapped will still be able to run,
@@ -145,6 +145,7 @@ namespace shared_memory_interface
   SharedMemoryTransport::SharedMemoryTransport()
   {
     m_initialized = false;
+    m_connected = false;
     m_watchdog_thread = NULL;
   }
 
@@ -193,6 +194,11 @@ namespace shared_memory_interface
     return m_initialized;
   }
 
+  bool SharedMemoryTransport::connected()
+  {
+    return m_connected;
+  }
+
   void SharedMemoryTransport::configure(std::string interface_name, std::string field_name, bool create_field)
   {
     PRINT_TRACE_ENTER
@@ -219,6 +225,7 @@ namespace shared_memory_interface
     }
 
     m_field_name = field_name;
+    m_interface_name = interface_name;
     m_even_buffer_name = m_field_name + "_even";
     m_odd_buffer_name = m_field_name + "_odd";
     m_buffer_sequence_id_name = m_field_name + "_buffer_sequence_id";
@@ -228,6 +235,9 @@ namespace shared_memory_interface
     m_exists_flag_name = m_field_name + "_exists";
 
     m_string_allocator = new SMCharAllocator(segment->get_segment_manager());
+
+    m_watchdog_thread = new boost::thread(boost::bind(&SharedMemoryTransport::watchdogFunction, this));
+
     m_initialized = true;
 
     if(create_field)
@@ -241,11 +251,41 @@ namespace shared_memory_interface
         createField();
       }
     }
-    else
+
+    ROS_ID_INFO_STREAM("Configured transport for " << m_interface_name << ":" << m_field_name << ".");
+    PRINT_TRACE_EXIT
+  }
+
+  bool SharedMemoryTransport::connect(double timeout)
+  {
+    if(!m_initialized)
+    {
+      ROS_ID_ERROR_STREAM("Connect called on uninitialized transport");
+      return false;
+    }
+
+    ROS_ID_DEBUG_THROTTLED_STREAM("Attempting to connect to " << m_interface_name << ":" << m_field_name << ".");
+    if(timeout == 0.0 && (segment->find<bool>(m_exists_flag_name.c_str()).first == NULL))
+    {
+      return false;
+    }
+    else if(timeout < 0.0)
     {
       while(segment->find<bool>(m_exists_flag_name.c_str()).first == NULL)
       {
         ROS_ID_WARN_THROTTLED_STREAM("Waiting for field \"" << m_field_name << "\" to exist");
+      }
+    }
+    else
+    {
+      boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(timeout);
+      while(segment->find<bool>(m_exists_flag_name.c_str()).first == NULL)
+      {
+        ROS_ID_WARN_THROTTLED_STREAM("Waiting for field \"" << m_field_name << "\" to exist");
+        if(boost::get_system_time() >= timeout_time)
+        {
+          return false;
+        }
       }
     }
 
@@ -257,12 +297,11 @@ namespace shared_memory_interface
     m_condition_mutex_ptr = segment->find<boost::interprocess::interprocess_mutex>(m_condition_mutex_name.c_str()).first;
     m_last_read_buffer_sequence_id = (*m_buffer_sequence_id_ptr) - 1;
 
-    m_watchdog_thread = new boost::thread(boost::bind(&SharedMemoryTransport::watchdogFunction, this));
-
     m_connected = true;
 
-    ROS_ID_INFO_STREAM("Connected to " << interface_name << ":" << field_name << ".");
-    PRINT_TRACE_EXIT
+    ROS_ID_INFO_STREAM("Connected to " << m_interface_name << ":" << m_field_name << ".");
+
+    return true;
   }
 
   bool SharedMemoryTransport::createField()
@@ -319,9 +358,9 @@ namespace shared_memory_interface
         if(buffer_sequence_id == *m_buffer_sequence_id_ptr) //no one wrote to the buffer while we were trying to read it
         {
           m_last_read_buffer_sequence_id = buffer_sequence_id;
-          if(starvation_counter != 0)
+          if(starvation_counter >= 10)
           {
-            std::cerr << starvation_counter << " starvations" << std::endl;
+            ROS_ID_WARN_STREAM(starvation_counter << " starvations while getting data from field " << m_field_name);
           }
 
           PRINT_TRACE_EXIT
@@ -334,7 +373,7 @@ namespace shared_memory_interface
       }
       catch(std::exception& ex) //catch std::string issues that happen during the copy
       {
-        std::cerr << ex.what() << std::endl;
+        std::cerr << "Exception " << ex.what() << " occurred while getting data from field " << m_field_name << std::endl;
       }
 
       boost::this_thread::interruption_point();
