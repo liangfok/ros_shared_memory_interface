@@ -37,14 +37,14 @@ namespace shared_memory_interface
 #define PRINT_TRACE_ENTER if(TRACE)std::cerr<<__func__<<std::endl;
 #define PRINT_TRACE_EXIT if(TRACE)std::cerr<<"/"<<__func__<<std::endl;
 
-#define ROS_ID_DEBUG_THROTTLED_STREAM(...) ROS_DEBUG_STREAM_THROTTLE(1.0, "SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
-#define ROS_ID_INFO_THROTTLED_STREAM(...) ROS_INFO_STREAM_THROTTLE(1.0, "SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
-#define ROS_ID_WARN_THROTTLED_STREAM(...) ROS_WARN_STREAM_THROTTLE(1.0, "SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
-#define ROS_ID_ERROR_THROTTLED_STREAM(...) ROS_ERROR_STREAM_THROTTLE(1.0, "SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
-#define ROS_ID_DEBUG_STREAM(...) ROS_DEBUG_STREAM("SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
-#define ROS_ID_INFO_STREAM(...) ROS_INFO_STREAM("SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
-#define ROS_ID_WARN_STREAM(...) ROS_WARN_STREAM("SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
-#define ROS_ID_ERROR_STREAM(...) ROS_ERROR_STREAM("SharedMemoryTransport(" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_DEBUG_THROTTLED_STREAM(...) ROS_DEBUG_STREAM_THROTTLE(1.0, "SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_INFO_THROTTLED_STREAM(...) ROS_INFO_STREAM_THROTTLE(1.0, "SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_WARN_THROTTLED_STREAM(...) ROS_WARN_STREAM_THROTTLE(1.0, "SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_ERROR_THROTTLED_STREAM(...) ROS_ERROR_STREAM_THROTTLE(1.0, "SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_DEBUG_STREAM(...) ROS_DEBUG_STREAM("SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_INFO_STREAM(...) ROS_INFO_STREAM("SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_WARN_STREAM(...) ROS_WARN_STREAM("SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
+#define ROS_ID_ERROR_STREAM(...) ROS_ERROR_STREAM("SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
 #define TEST_INITIALIZED if(!m_initialized) {ROS_ID_ERROR_STREAM("Tried to call " <<__func__ << " on an uninitialized shared memory transport!"); return false;}
 #define TEST_CONNECTED if(!m_connected) {ROS_ID_ERROR_STREAM("Tried to call " <<__func__ << " on an unconnected shared memory transport!"); return false;}
 #define CATCH_SHUTDOWN_SIGNAL if(!m_initialized) {ROS_ID_DEBUG_STREAM("Caught shutdown signal in function " <<__func__ << "!"); return false;}
@@ -358,7 +358,7 @@ namespace shared_memory_interface
         if(buffer_sequence_id == *m_buffer_sequence_id_ptr) //no one wrote to the buffer while we were trying to read it
         {
           m_last_read_buffer_sequence_id = buffer_sequence_id;
-          if(starvation_counter >= 10)
+          if(starvation_counter > 2)
           {
             ROS_ID_WARN_STREAM(starvation_counter << " starvations while getting data from field " << m_field_name);
           }

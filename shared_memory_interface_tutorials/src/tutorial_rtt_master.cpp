@@ -35,8 +35,9 @@
 #include "std_msgs/Float64MultiArray.h"
 #include "std_msgs/MultiArrayDimension.h"
 
-// #define NUM_SAMPLES 1000  // the number of samples over which to calculate the latency statistics
-// double data[NUM_SAMPLES];
+#define WRITE_TO_ROS_TOPIC false
+#define LISTEN_TO_ROS_TOPIC false
+#define USE_POLLING true
 
 int NUM_SAMPLES = 10000; //Default Value
 int SIZE_SAMPLES = 1; //Default Value
@@ -139,10 +140,10 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "master", ros::init_options::AnonymousName);
   ros::NodeHandle n;
 
-  shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub(false);
+  shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub(WRITE_TO_ROS_TOPIC);
   pub.advertise("/rtt_tx");
 
-  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub(false, true);
+  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub(LISTEN_TO_ROS_TOPIC, USE_POLLING);
   sub.subscribe("/rtt_rx", boost::bind(&rttRxCallback, _1));
 
   ros::Rate loop_rate(1000);
