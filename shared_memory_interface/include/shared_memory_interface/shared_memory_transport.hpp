@@ -78,13 +78,13 @@ namespace shared_memory_interface
     std::string m_buffer_sequence_id_name;
     std::string m_condition_name;
     std::string m_condition_mutex_name;
-    std::string m_invalid_flag_name;
+    std::string m_has_data_flag_name;
     std::string m_exists_flag_name;
 
     SMCharAllocator* m_string_allocator;
 
     uint32_t* m_buffer_sequence_id_ptr;
-    bool* m_invalid_ptr;
+    bool* m_has_data_ptr;
     SMString* m_even_string_ptr;
     unsigned char* m_even_data_ptr;
     uint32_t* m_even_length_ptr;
@@ -93,6 +93,10 @@ namespace shared_memory_interface
     uint32_t* m_odd_length_ptr;
     boost::interprocess::interprocess_condition* m_condition_ptr;
     boost::interprocess::interprocess_mutex* m_condition_mutex_ptr;
+
+    //remembered flags
+    bool m_already_read_valid;
+    bool m_already_set_valid;
 
     uint32_t m_last_read_buffer_sequence_id;
   };

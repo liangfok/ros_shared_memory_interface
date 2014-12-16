@@ -52,8 +52,6 @@ int main(int argc, char **argv)
 
   pub.advertise("/rtt_rx");
 
-  bool listenROSTopic = false;
-  bool usePolling = true;
   shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub(LISTEN_TO_ROS_TOPIC, USE_POLLING);
   sub.subscribe("/rtt_tx", boost::bind(&rttTxCallback, _1));
 

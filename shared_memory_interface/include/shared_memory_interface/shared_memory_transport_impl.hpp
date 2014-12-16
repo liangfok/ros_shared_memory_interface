@@ -45,6 +45,8 @@ namespace shared_memory_interface
     m_initialized = false;
     m_connected = false;
     m_watchdog_thread = NULL;
+    m_already_read_valid = false;
+    m_already_set_valid = false;
   }
 
   template<typename T>
@@ -62,6 +64,7 @@ namespace shared_memory_interface
   void SharedMemoryTransport<T>::watchdogFunction()
   {
     bool* shutdown_required = NULL;
+    ros::Rate loop_rate(2.0);
     while(ros::ok())
     {
       shutdown_required = segment->find<bool>("shutdown_required").first;
@@ -70,7 +73,8 @@ namespace shared_memory_interface
         ROS_ID_WARN_THROTTLED_STREAM("Watchdog waiting for shutdown signal field...");
         continue;
       }
-      boost::this_thread::interruption_point();
+      //boost::this_thread::interruption_point();
+      loop_rate.sleep();
     }
 
     while(ros::ok())
@@ -84,8 +88,8 @@ namespace shared_memory_interface
         ROS_ID_WARN_STREAM("Disconnected from shared memory!");
         return;
       }
-      usleep(1000000);
-      boost::this_thread::interruption_point();
+      loop_rate.sleep();
+      //boost::this_thread::interruption_point();
     }
   }
 
@@ -124,7 +128,7 @@ namespace shared_memory_interface
       {
         ROS_ID_INFO_THROTTLED_STREAM("Waiting for shared memory space " << interface_name << " to become available (is the manager running?)...");
       }
-      boost::this_thread::interruption_point();
+      //boost::this_thread::interruption_point();
     }
 
     m_field_name = field_name;
@@ -136,7 +140,7 @@ namespace shared_memory_interface
     m_buffer_sequence_id_name = m_field_name + "_buffer_sequence_id";
     m_condition_name = m_field_name + "_condition";
     m_condition_mutex_name = m_field_name + "_condition_mutex";
-    m_invalid_flag_name = m_field_name + "_invalid";
+    m_has_data_flag_name = m_field_name + "_has_data";
     m_exists_flag_name = m_field_name + "_exists";
 
     m_string_allocator = new SMCharAllocator(segment->get_segment_manager());
@@ -158,8 +162,7 @@ namespace shared_memory_interface
     }
 
     ROS_ID_INFO_STREAM("Configured transport for " << m_interface_name << ":" << m_field_name << ".");
-    PRINT_TRACE_EXIT
-  }
+PRINT_TRACE_EXIT}
 
   template<typename T>
   bool SharedMemoryTransport<T>::connect(double timeout)
@@ -196,7 +199,7 @@ namespace shared_memory_interface
     }
 
     m_buffer_sequence_id_ptr = segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first;
-    m_invalid_ptr = segment->find<bool>(m_invalid_flag_name.c_str()).first;
+    m_has_data_ptr = segment->find<bool>(m_has_data_flag_name.c_str()).first;
     m_even_string_ptr = segment->find<SMString>(m_even_buffer_name.c_str()).first;
     m_even_data_ptr = (unsigned char*) &(m_even_string_ptr->at(0));
     m_even_length_ptr = segment->find<uint32_t>(m_even_length_name.c_str()).first;
@@ -217,34 +220,24 @@ namespace shared_memory_interface
   template<typename T>
   bool SharedMemoryTransport<T>::createField()
   {
-    PRINT_TRACE_ENTER
-    TEST_INITIALIZED
+    PRINT_TRACE_ENTER TEST_INITIALIZED
 
     try
     {
       ROS_ID_INFO_STREAM("Creating new shared memory field for " << m_field_name);
       segment->construct<SMString>(m_even_buffer_name.c_str())(*m_string_allocator);
-      //std::cerr <<"sanity0\n";
       segment->construct<uint32_t>(m_even_length_name.c_str())(m_reservation_size);
-      //std::cerr <<"sanity1\n";
       segment->construct<SMString>(m_odd_buffer_name.c_str())(*m_string_allocator);
-      //std::cerr <<"sanity2\n";
       segment->construct<uint32_t>(m_odd_length_name.c_str())(m_reservation_size);
-      //std::cerr <<"sanity3\n";
       segment->construct<uint32_t>(m_buffer_sequence_id_name.c_str())(0);
-      //std::cerr <<"sanity4\n";
 
       segment->find<SMString>(m_even_buffer_name.c_str()).first->resize(m_reservation_size);
-      //std::cerr <<"sanity5\n";
       segment->find<SMString>(m_odd_buffer_name.c_str()).first->resize(m_reservation_size);
-      //std::cerr <<"sanity6\n";
 
       segment->construct<boost::interprocess::interprocess_condition>(m_condition_name.c_str())(); //(segment->get_segment_manager());
-      //std::cerr <<"sanity7\n";
       segment->construct<boost::interprocess::interprocess_mutex>(m_condition_mutex_name.c_str())(); //(segment->get_segment_manager());
-      //std::cerr <<"sanity8\n";
 
-      segment->construct<bool>(m_invalid_flag_name.c_str())(true); //field is invalid until someone writes actual data to it
+      segment->construct<bool>(m_has_data_flag_name.c_str())(true); //field is invalid until someone writes actual data to it
       segment->construct<bool>(m_exists_flag_name.c_str())(true); //once we construct this, everyone will assume the field exists
     }
     catch(boost::interprocess::interprocess_exception &ex)
@@ -267,7 +260,7 @@ namespace shared_memory_interface
   bool SharedMemoryTransport<T>::getData(T& data)
   {
     PRINT_TRACE_ENTER
-    if(!hasData())
+    if(!m_already_read_valid && !hasData())
     {
       PRINT_TRACE_EXIT
       return false;
@@ -305,7 +298,7 @@ namespace shared_memory_interface
         std::cerr << "Exception " << ex.what() << " occurred while getting data from field " << m_field_name << std::endl;
       }
 
-      boost::this_thread::interruption_point();
+      //boost::this_thread::interruption_point();
     }
 
     PRINT_TRACE_EXIT
@@ -315,23 +308,36 @@ namespace shared_memory_interface
   template<typename T>
   bool SharedMemoryTransport<T>::setData(T& data)
   {
-    PRINT_TRACE_ENTER
-    TEST_CONNECTED
+    PRINT_TRACE_ENTER TEST_CONNECTED
 
     unsigned long oserial_size = ros::serialization::serializationLength(data);
 
     //todo make sure we resize if we don't fit!
 
-    bool even = isEven(*m_buffer_sequence_id_ptr);
-    unsigned char* data_ptr = even? m_odd_data_ptr : m_even_data_ptr;
-    uint32_t* length_ptr = even? m_odd_length_ptr : m_even_length_ptr;
-
+    unsigned char* data_ptr;
+    uint32_t* length_ptr;
+    uint32_t buffer_sequence_id = *m_buffer_sequence_id_ptr;
+    if(isEven(buffer_sequence_id))
+    {
+      data_ptr = m_odd_data_ptr;
+      length_ptr = m_odd_length_ptr;
+    }
+    else
+    {
+      data_ptr = m_even_data_ptr;
+      length_ptr = m_even_length_ptr;
+    }
     ros::serialization::OStream ostream(data_ptr, oserial_size);
     ros::serialization::serialize(ostream, data);
 
     *length_ptr = oserial_size;
-    *m_invalid_ptr = false;
-    *m_buffer_sequence_id_ptr = (*m_buffer_sequence_id_ptr) + 1;
+
+//    if(!m_already_set_valid)
+//    {
+      *m_has_data_ptr = true;
+//      m_already_set_valid = true;
+//    }
+    *m_buffer_sequence_id_ptr = buffer_sequence_id + 1;
     m_condition_ptr->notify_all();
 
     PRINT_TRACE_EXIT
@@ -342,8 +348,8 @@ namespace shared_memory_interface
   bool SharedMemoryTransport<T>::hasData()
   {
     PRINT_TRACE_ENTER
-    TEST_CONNECTED
-    bool has_data = !(*m_invalid_ptr);
+    bool has_data = (*m_has_data_ptr);
+    m_already_read_valid = has_data;
     PRINT_TRACE_EXIT
     return has_data;
   }
@@ -351,34 +357,45 @@ namespace shared_memory_interface
   template<typename T>
   bool SharedMemoryTransport<T>::awaitNewDataPolled(T& data, double timeout)
   {
-    PRINT_TRACE_ENTER
-    TEST_CONNECTED
+    PRINT_TRACE_ENTER TEST_CONNECTED
 
     if(timeout == 0)
     {
       PRINT_TRACE_EXIT
       return getData(data);
     }
-    else
+
+    if(!m_already_read_valid)
     {
-      while(ros::ok() && (*m_invalid_ptr)) //wait for the field to at least have something
+      while(ros::ok() && !(*m_has_data_ptr)) //wait for the field to at least have something
       {
         CATCH_SHUTDOWN_SIGNAL
         ROS_ID_WARN_THROTTLED_STREAM("Waiting for field " << m_field_name << " to become valid.");
-        boost::this_thread::interruption_point();
+        //boost::this_thread::interruption_point();
       }
+      m_already_read_valid = true;
+    }
 
+    if(timeout < 0)
+    {
+      while(ros::ok() && (m_last_read_buffer_sequence_id == *m_buffer_sequence_id_ptr)) //wait for the selector to change
+      {
+        CATCH_SHUTDOWN_SIGNAL
+      }
+    }
+    else
+    {
       boost::posix_time::ptime timeout_time = boost::get_system_time() + boost::posix_time::milliseconds(timeout);
       while(ros::ok() && (m_last_read_buffer_sequence_id == *m_buffer_sequence_id_ptr)) //wait for the selector to change
       {
         CATCH_SHUTDOWN_SIGNAL
         if(timeout < 0)
         {
-          ROS_ID_DEBUG_THROTTLED_STREAM("Waiting for new data in field " << m_field_name);
+//          ROS_ID_DEBUG_THROTTLED_STREAM("Waiting for new data in field " << m_field_name);
         }
         else if(boost::get_system_time() < timeout_time)
         {
-          ROS_ID_DEBUG_THROTTLED_STREAM("Waiting for new data in field " << m_field_name << " with timeout " << timeout);
+//          ROS_ID_DEBUG_THROTTLED_STREAM("Waiting for new data in field " << m_field_name << " with timeout " << timeout);
         }
         else
         {
@@ -386,19 +403,18 @@ namespace shared_memory_interface
           PRINT_TRACE_EXIT
           return false;
         }
-        boost::this_thread::interruption_point();
+        //boost::this_thread::interruption_point();
       }
-
-      PRINT_TRACE_EXIT
-      return getData(data);
     }
+
+    PRINT_TRACE_EXIT
+    return getData(data);
   }
 
   template<typename T>
   bool SharedMemoryTransport<T>::awaitNewData(T& data, double timeout)
   {
-    PRINT_TRACE_ENTER
-    TEST_CONNECTED
+    PRINT_TRACE_ENTER TEST_CONNECTED
 
     if(timeout == 0)
     {

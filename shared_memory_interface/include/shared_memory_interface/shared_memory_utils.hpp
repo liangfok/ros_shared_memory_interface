@@ -71,8 +71,13 @@
 namespace shared_memory_interface
 {
 #define TRACE 0
-#define PRINT_TRACE_ENTER if(TRACE)std::cerr<<__func__<<std::endl;
-#define PRINT_TRACE_EXIT if(TRACE)std::cerr<<"/"<<__func__<<std::endl;
+#if TRACE
+#define PRINT_TRACE_ENTER #if(TRACE) std::cerr<<__func__<<std::endl;
+#define PRINT_TRACE_EXIT #if(TRACE) std::cerr<<"/"<<__func__<<std::endl;
+#else
+#define PRINT_TRACE_ENTER
+#define PRINT_TRACE_EXIT
+#endif
 
 #define ROS_ID_DEBUG_THROTTLED_STREAM(...) ROS_DEBUG_STREAM_THROTTLE(1.0, "SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
 #define ROS_ID_INFO_THROTTLED_STREAM(...) ROS_INFO_STREAM_THROTTLE(1.0, "SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
@@ -82,6 +87,7 @@ namespace shared_memory_interface
 #define ROS_ID_INFO_STREAM(...) ROS_INFO_STREAM("SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
 #define ROS_ID_WARN_STREAM(...) ROS_WARN_STREAM("SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
 #define ROS_ID_ERROR_STREAM(...) ROS_ERROR_STREAM("SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
+
 #define TEST_INITIALIZED if(!m_initialized) {ROS_ID_ERROR_STREAM("Tried to call " <<__func__ << " on an uninitialized shared memory transport!"); return false;}
 #define TEST_CONNECTED if(!m_connected) {ROS_ID_ERROR_STREAM("Tried to call " <<__func__ << " on an unconnected shared memory transport!"); return false;}
 #define CATCH_SHUTDOWN_SIGNAL if(!m_initialized) {ROS_ID_DEBUG_STREAM("Caught shutdown signal in function " <<__func__ << "!"); return false;}

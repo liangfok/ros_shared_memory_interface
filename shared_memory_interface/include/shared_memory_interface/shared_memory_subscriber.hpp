@@ -112,6 +112,11 @@ namespace shared_memory_interface
       return waitForMessage(msg, 0);
     }
 
+    bool connected()
+    {
+      return m_smt.connected();
+    }
+
   protected:
     SharedMemoryTransport<T> m_smt;
 
@@ -160,19 +165,20 @@ namespace shared_memory_interface
       {
         try
         {
-          if(!smt->initialized())
+//          if(!smt->initialized())
+//          {
+//            ROS_WARN("Shared memory transport was shut down. Stopping callback thread!");
+//            return;
+//          }
+          if(m_use_polling)
           {
-            ROS_WARN("Shared memory transport was shut down. Stopping callback thread!");
-            return;
+            smt->awaitNewDataPolled(msg);
           }
-          if(m_use_polling && smt->awaitNewDataPolled(msg))
+          else
           {
-            callback(msg);
+            smt->awaitNewData(msg);
           }
-          if(!m_use_polling && smt->awaitNewData(msg))
-          {
-            callback(msg);
-          }
+          callback(msg);
         }
         catch(ros::serialization::StreamOverrunException& ex)
         {
