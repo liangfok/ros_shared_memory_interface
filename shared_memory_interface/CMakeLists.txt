@@ -18,8 +18,6 @@ rosbuild_genmsg()
 
 #manager
 rosbuild_add_executable(shared_memory_manager src/shared_memory_manager.cpp)
-rosbuild_link_boost(shared_memory_manager thread)
 
 #remover
 rosbuild_add_executable(shared_memory_remover src/shared_memory_remover.cpp)
-rosbuild_link_boost(shared_memory_remover thread)
