@@ -140,7 +140,7 @@ namespace shared_memory_interface
     m_buffer_sequence_id_name = m_field_name + "_buffer_sequence_id";
     m_condition_name = m_field_name + "_condition";
     m_condition_mutex_name = m_field_name + "_condition_mutex";
-    m_has_data_flag_name = m_field_name + "_has_data";
+    m_invalid_flag_name = m_field_name + "_invalid";
     m_exists_flag_name = m_field_name + "_exists";
 
     m_string_allocator = new SMCharAllocator(segment->get_segment_manager());
@@ -199,7 +199,7 @@ PRINT_TRACE_EXIT}
     }
 
     m_buffer_sequence_id_ptr = segment->find<uint32_t>(m_buffer_sequence_id_name.c_str()).first;
-    m_has_data_ptr = segment->find<bool>(m_has_data_flag_name.c_str()).first;
+    m_invalid_ptr = segment->find<bool>(m_invalid_flag_name.c_str()).first;
     m_even_string_ptr = segment->find<SMString>(m_even_buffer_name.c_str()).first;
     m_even_data_ptr = (unsigned char*) &(m_even_string_ptr->at(0));
     m_even_length_ptr = segment->find<uint32_t>(m_even_length_name.c_str()).first;
@@ -237,7 +237,7 @@ PRINT_TRACE_EXIT}
       segment->construct<boost::interprocess::interprocess_condition>(m_condition_name.c_str())(); //(segment->get_segment_manager());
       segment->construct<boost::interprocess::interprocess_mutex>(m_condition_mutex_name.c_str())(); //(segment->get_segment_manager());
 
-      segment->construct<bool>(m_has_data_flag_name.c_str())(true); //field is invalid until someone writes actual data to it
+      segment->construct<bool>(m_invalid_flag_name.c_str())(true); //field is invalid until someone writes actual data to it
       segment->construct<bool>(m_exists_flag_name.c_str())(true); //once we construct this, everyone will assume the field exists
     }
     catch(boost::interprocess::interprocess_exception &ex)
@@ -334,7 +334,7 @@ PRINT_TRACE_EXIT}
 
 //    if(!m_already_set_valid)
 //    {
-      *m_has_data_ptr = true;
+      *m_invalid_ptr = false;
 //      m_already_set_valid = true;
 //    }
     *m_buffer_sequence_id_ptr = buffer_sequence_id + 1;
@@ -348,7 +348,7 @@ PRINT_TRACE_EXIT}
   bool SharedMemoryTransport<T>::hasData()
   {
     PRINT_TRACE_ENTER
-    bool has_data = (*m_has_data_ptr);
+    bool has_data = !(*m_invalid_ptr);
     m_already_read_valid = has_data;
     PRINT_TRACE_EXIT
     return has_data;
@@ -367,7 +367,7 @@ PRINT_TRACE_EXIT}
 
     if(!m_already_read_valid)
     {
-      while(ros::ok() && !(*m_has_data_ptr)) //wait for the field to at least have something
+      while(ros::ok() && (*m_invalid_ptr)) //wait for the field to at least have something
       {
         CATCH_SHUTDOWN_SIGNAL
         ROS_ID_WARN_THROTTLED_STREAM("Waiting for field " << m_field_name << " to become valid.");
