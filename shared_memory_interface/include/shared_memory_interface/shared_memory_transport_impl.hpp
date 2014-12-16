@@ -37,7 +37,6 @@
 
 namespace shared_memory_interface
 {
-
   template<typename T>
   SharedMemoryTransport<T>::SharedMemoryTransport(unsigned long reservation_size)
   {
@@ -162,7 +161,8 @@ namespace shared_memory_interface
     }
 
     ROS_ID_INFO_STREAM("Configured transport for " << m_interface_name << ":" << m_field_name << ".");
-PRINT_TRACE_EXIT}
+    PRINT_TRACE_EXIT
+  }
 
   template<typename T>
   bool SharedMemoryTransport<T>::connect(double timeout)
@@ -220,7 +220,8 @@ PRINT_TRACE_EXIT}
   template<typename T>
   bool SharedMemoryTransport<T>::createField()
   {
-    PRINT_TRACE_ENTER TEST_INITIALIZED
+    PRINT_TRACE_ENTER
+    TEST_INITIALIZED
 
     try
     {
@@ -308,7 +309,8 @@ PRINT_TRACE_EXIT}
   template<typename T>
   bool SharedMemoryTransport<T>::setData(T& data)
   {
-    PRINT_TRACE_ENTER TEST_CONNECTED
+    PRINT_TRACE_ENTER
+    TEST_CONNECTED
 
     unsigned long oserial_size = ros::serialization::serializationLength(data);
 
@@ -334,7 +336,7 @@ PRINT_TRACE_EXIT}
 
 //    if(!m_already_set_valid)
 //    {
-      *m_invalid_ptr = false;
+    *m_invalid_ptr = false;
 //      m_already_set_valid = true;
 //    }
     *m_buffer_sequence_id_ptr = buffer_sequence_id + 1;
@@ -357,7 +359,8 @@ PRINT_TRACE_EXIT}
   template<typename T>
   bool SharedMemoryTransport<T>::awaitNewDataPolled(T& data, double timeout)
   {
-    PRINT_TRACE_ENTER TEST_CONNECTED
+    PRINT_TRACE_ENTER
+    TEST_CONNECTED
 
     if(timeout == 0)
     {
@@ -414,7 +417,8 @@ PRINT_TRACE_EXIT}
   template<typename T>
   bool SharedMemoryTransport<T>::awaitNewData(T& data, double timeout)
   {
-    PRINT_TRACE_ENTER TEST_CONNECTED
+    PRINT_TRACE_ENTER
+    TEST_CONNECTED
 
     if(timeout == 0)
     {

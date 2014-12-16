@@ -75,8 +75,8 @@ namespace shared_memory_interface
 #define PRINT_TRACE_ENTER #if(TRACE) std::cerr<<__func__<<std::endl;
 #define PRINT_TRACE_EXIT #if(TRACE) std::cerr<<"/"<<__func__<<std::endl;
 #else
-#define PRINT_TRACE_ENTER
-#define PRINT_TRACE_EXIT
+#define PRINT_TRACE_ENTER ;
+#define PRINT_TRACE_EXIT ;
 #endif
 
 #define ROS_ID_DEBUG_THROTTLED_STREAM(...) ROS_DEBUG_STREAM_THROTTLE(1.0, "SharedMemoryTransport (" << getpid() << "): "<<__VA_ARGS__)
