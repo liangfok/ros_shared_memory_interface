@@ -17,11 +17,9 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 #ROS tutorial
-#rosbuild_add_executable(tutorial_ros_talker src/tutorial_ros_talker.cpp)
-#target_link_libraries(tutorial_ros_talker shared_memory_interface)
+rosbuild_add_executable(tutorial_ros_talker src/tutorial_ros_talker.cpp)
+rosbuild_add_executable(tutorial_ros_listener src/tutorial_ros_listener.cpp)
 
-#rosbuild_add_executable(tutorial_ros_listener src/tutorial_ros_listener.cpp)
-#target_link_libraries(tutorial_ros_listener shared_memory_interface)
-
+#Benchmark
 rosbuild_add_executable(tutorial_rtt_master src/tutorial_rtt_master.cpp)
 rosbuild_add_executable(tutorial_rtt_slave src/tutorial_rtt_slave.cpp)
