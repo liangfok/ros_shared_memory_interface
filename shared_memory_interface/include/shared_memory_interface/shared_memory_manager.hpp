@@ -32,7 +32,7 @@
 #ifndef SHARED_MEMORY_MANAGER_HPP
 #define SHARED_MEMORY_MANAGER_HPP
 #include <ros/ros.h>
-#include "shared_memory_interface/shared_memory_transport.hpp"
+#include "shared_memory_interface/shared_memory_utils.hpp"
 #include <signal.h>
 
 namespace shared_memory_interface

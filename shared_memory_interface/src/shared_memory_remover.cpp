@@ -29,7 +29,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "shared_memory_interface/shared_memory_transport.hpp"
+#include "shared_memory_interface/shared_memory_utils.hpp"
 
 int main(int argc, char **argv)
 {
@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 
   std::cerr << "Removing shared interface \"" << interface_name << "\"" << std::endl;
 
-  shared_memory_interface::SharedMemoryTransport::destroyMemory(interface_name);
+  shared_memory_interface::destroyMemory(interface_name);
 
   return 0;
 }

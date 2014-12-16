@@ -32,7 +32,7 @@
 #ifndef SHARED_MEMORY_SUBSCRIBER_HPP
 #define SHARED_MEMORY_SUBSCRIBER_HPP
 
-#include "shared_memory_transport.hpp"
+#include "shared_memory_transport_impl.hpp"
 
 namespace shared_memory_interface
 {
@@ -99,14 +99,11 @@ namespace shared_memory_interface
         ROS_DEBUG("Tried to use an unconnected shared memory transport and reconnection attempt failed!");
         return false;
       }
-      std::string serialized_data;
-      if(!m_smt.awaitNewDataPolled(serialized_data, timeout))
+      if(!m_smt.awaitNewDataPolled(msg, timeout))
       {
         return false;
       }
 
-      ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
-      ros::serialization::deserialize(istream, msg);
       return true;
     }
 
@@ -116,7 +113,7 @@ namespace shared_memory_interface
     }
 
   protected:
-    SharedMemoryTransport m_smt;
+    SharedMemoryTransport<T> m_smt;
 
     std::string m_interface_name;
     std::string m_full_topic_path;
@@ -128,7 +125,7 @@ namespace shared_memory_interface
 
     boost::thread* m_callback_thread;
 
-    void callbackThreadFunction(SharedMemoryTransport* smt, boost::function<void(T&)> callback)
+    void callbackThreadFunction(SharedMemoryTransport<T>* smt, boost::function<void(T&)> callback)
     {
       T msg;
       std::string serialized_data;
@@ -168,16 +165,12 @@ namespace shared_memory_interface
             ROS_WARN("Shared memory transport was shut down. Stopping callback thread!");
             return;
           }
-          if(m_use_polling && smt->awaitNewDataPolled(serialized_data))
+          if(m_use_polling && smt->awaitNewDataPolled(msg))
           {
-            ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
-            ros::serialization::deserialize(istream, msg);
             callback(msg);
           }
-          if(!m_use_polling && smt->awaitNewData(serialized_data))
+          if(!m_use_polling && smt->awaitNewData(msg))
           {
-            ros::serialization::IStream istream((uint8_t*) &serialized_data[0], serialized_data.size());
-            ros::serialization::deserialize(istream, msg);
             callback(msg);
           }
         }

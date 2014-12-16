@@ -32,7 +32,7 @@
 #ifndef SHARED_MEMORY_PUBLISHER_HPP
 #define SHARED_MEMORY_PUBLISHER_HPP
 
-#include "shared_memory_transport.hpp"
+#include "shared_memory_transport_impl.hpp"
 
 namespace shared_memory_interface
 {
@@ -70,15 +70,8 @@ namespace shared_memory_interface
         ROS_WARN("Tried to publish on an unconfigured shared memory publisher!");
         return false;
       }
-      std::string serialized;
 
-      unsigned long oserial_size = ros::serialization::serializationLength(data);
-      serialized.resize(oserial_size);
-
-      ros::serialization::OStream ostream((unsigned char*) &serialized[0], oserial_size);
-      ros::serialization::serialize(ostream, data);
-
-      if(m_smt.setData(serialized))
+      if(m_smt.setData(data))
       {
         if(m_write_to_rostopic) // && m_ros_publisher.getNumSubscribers() > 0)
         {
@@ -94,7 +87,7 @@ namespace shared_memory_interface
     }
 
   protected:
-    SharedMemoryTransport m_smt;
+    SharedMemoryTransport<T> m_smt;
 
     std::string m_interface_name;
     std::string m_full_topic_path;
