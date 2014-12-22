@@ -95,14 +95,14 @@ namespace shared_memory_interface
   typedef boost::interprocess::allocator<char, boost::interprocess::managed_shared_memory::segment_manager> SMCharAllocator;
   typedef boost::interprocess::basic_string<char, std::char_traits<char>, SMCharAllocator> SMString;
 
-  boost::interprocess::permissions unrestricted()
+  inline boost::interprocess::permissions unrestricted()
   {
     boost::interprocess::permissions perm;
     perm.set_unrestricted();
     return perm;
   }
 
-  bool createMemory(std::string interface_name, unsigned int size)
+  inline bool createMemory(std::string interface_name, unsigned int size)
   {
     PRINT_TRACE_ENTER
     //make sure the system will let us create a memory space of the desired size
@@ -164,7 +164,7 @@ namespace shared_memory_interface
   }
 
   //cerr used below because ROS doesn't work after ros::shutdown has happened.
-  void destroyMemory(std::string interface_name)
+  inline void destroyMemory(std::string interface_name)
   {
     PRINT_TRACE_ENTER
     std::cerr << "SharedMemoryTransport(" << getpid() << "): " << "Destroying shared memory space " << interface_name << "..." << std::endl;

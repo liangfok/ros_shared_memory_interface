@@ -16,14 +16,6 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 rosbuild_genmsg()
 
-find_package(Boost REQUIRED COMPONENTS thread python)
-find_package(PythonLibs REQUIRED)
-include_directories(include ../common/include SYSTEM ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
-
-#shared memory library
-#rosbuild_add_library(shared_memory_interface src/shared_memory_transport.cpp)
-#target_link_libraries(shared_memory_interface ${Boost_LIBRARIES} -lrt)
-
 #manager
 rosbuild_add_executable(shared_memory_manager src/shared_memory_manager.cpp)
 target_link_libraries(shared_memory_manager ${Boost_LIBRARIES} -lrt)
