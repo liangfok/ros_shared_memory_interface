@@ -16,8 +16,6 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-find_package(Boost REQUIRED COMPONENTS thread python)
-
 #ROS tutorial
 rosbuild_add_executable(tutorial_ros_talker src/tutorial_ros_talker.cpp)
 rosbuild_add_executable(tutorial_ros_listener src/tutorial_ros_listener.cpp)
