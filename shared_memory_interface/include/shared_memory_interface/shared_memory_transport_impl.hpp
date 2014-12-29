@@ -62,23 +62,22 @@ namespace shared_memory_interface
   template<typename T>
   void SharedMemoryTransport<T>::watchdogFunction()
   {
-    bool* shutdown_required = NULL;
+    bool* shutdown_required_ptr = NULL;
     ros::Rate loop_rate(2.0);
     while(ros::ok())
     {
-      shutdown_required = segment->find<bool>("shutdown_required").first;
-      if(!shutdown_required)
+      shutdown_required_ptr = segment->find<bool>("shutdown_required").first;
+      if(shutdown_required_ptr)
       {
-        ROS_ID_WARN_THROTTLED_STREAM("Watchdog waiting for shutdown signal field...");
-        continue;
+        break;
       }
-      //boost::this_thread::interruption_point();
+      ROS_ID_WARN_THROTTLED_STREAM("Watchdog waiting for shutdown signal field...");
       loop_rate.sleep();
     }
 
     while(ros::ok())
     {
-      if(*shutdown_required)
+      if(*shutdown_required_ptr)
       {
         m_initialized = false;
         ROS_ID_WARN_STREAM("Shutdown signal detected! Disconnecting from shared memory in one second!");
@@ -88,7 +87,6 @@ namespace shared_memory_interface
         return;
       }
       loop_rate.sleep();
-      //boost::this_thread::interruption_point();
     }
   }
 
