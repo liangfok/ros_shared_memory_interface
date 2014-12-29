@@ -18,8 +18,8 @@ rosbuild_genmsg()
 
 #manager
 rosbuild_add_executable(shared_memory_manager src/shared_memory_manager.cpp)
-target_link_libraries(shared_memory_manager -lrt)
+target_link_libraries(shared_memory_manager ${Boost_LIBRARIES} -lrt)
 
 #remover
 rosbuild_add_executable(shared_memory_remover src/shared_memory_remover.cpp)
-target_link_libraries(shared_memory_remover -lrt)
+target_link_libraries(shared_memory_remover ${Boost_LIBRARIES} -lrt)

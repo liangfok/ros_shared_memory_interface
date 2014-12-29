@@ -22,4 +22,7 @@ rosbuild_add_executable(tutorial_ros_listener src/tutorial_ros_listener.cpp)
 
 #Benchmark
 rosbuild_add_executable(tutorial_rtt_master src/tutorial_rtt_master.cpp)
+target_link_libraries(tutorial_rtt_master ${Boost_LIBRARIES} -lrt)
+
 rosbuild_add_executable(tutorial_rtt_slave src/tutorial_rtt_slave.cpp)
+target_link_libraries(tutorial_rtt_slave ${Boost_LIBRARIES} -lrt)
