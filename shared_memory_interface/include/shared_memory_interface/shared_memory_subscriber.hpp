@@ -67,7 +67,7 @@ namespace shared_memory_interface
       bool success = true;
       if(!m_smt.connect(1.0))
       {
-        ROS_WARN("Couldn't connect to %s via shared memory! Will try again later!", m_full_ros_topic_path.c_str());
+        ROS_WARN("Couldn't connect to %s via shared memory! Will try again later! Returning false for now.", m_full_ros_topic_path.c_str());
         success = false;
       }
 
