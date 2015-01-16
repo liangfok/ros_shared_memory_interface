@@ -42,6 +42,7 @@ namespace shared_memory_interface
   public:
     Subscriber(bool listen_to_rostopic = true, bool use_polling = false)
     {
+      m_nh = NULL;
       m_listen_to_rostopic = listen_to_rostopic;
       m_use_polling = use_polling;
       m_callback_thread = NULL;
@@ -60,6 +61,10 @@ namespace shared_memory_interface
     //just sets up names and subscriber for future getCurrent / waitFor calls
     bool subscribe(std::string topic_name, std::string shared_memory_interface_name = "smi")
     {
+      if(!m_nh)
+      {
+        m_nh = new ros::NodeHandle("~");
+      }
       m_interface_name = shared_memory_interface_name;
       configureTopicPaths(m_interface_name, topic_name, m_full_ros_topic_path, m_full_topic_path);
       m_smt.configure(m_interface_name, m_full_topic_path, false);
@@ -67,7 +72,7 @@ namespace shared_memory_interface
       bool success = true;
       if(!m_smt.connect(1.0))
       {
-        ROS_WARN("Couldn't connect to %s via shared memory! Will try again later! Returning false for now.", m_full_ros_topic_path.c_str());
+        ROS_WARN("%s: Couldn't connect to %s via shared memory! Will try again later! Returning false for now.", m_nh->getNamespace().c_str(), m_full_ros_topic_path.c_str());
         success = false;
       }
 
@@ -89,14 +94,18 @@ namespace shared_memory_interface
 
     bool waitForMessage(T& msg, double timeout = -1)
     {
+      if(!m_nh)
+      {
+        m_nh = new ros::NodeHandle("~");
+      }
       if(!m_smt.initialized())
       {
-        ROS_DEBUG("Tried to use an uninitialized shared memory transport!");
+        ROS_DEBUG_THROTTLE(1.0, "%s: Tried to get message from an uninitialized shared memory transport!", m_nh->getNamespace().c_str());
         return false;
       }
       if(!m_smt.connected() && !m_smt.connect(timeout))
       {
-        ROS_DEBUG("Tried to use an unconnected shared memory transport and reconnection attempt failed!");
+        ROS_DEBUG_THROTTLE(1.0, "%s: Tried to get message from an unconnected shared memory transport and reconnection attempt failed!", m_nh->getNamespace().c_str());
         return false;
       }
       if(!m_smt.awaitNewDataPolled(msg, timeout))
@@ -118,6 +127,7 @@ namespace shared_memory_interface
     }
 
   protected:
+    ros::NodeHandle* m_nh;
     SharedMemoryTransport<T> m_smt;
 
     std::string m_interface_name;
@@ -140,7 +150,7 @@ namespace shared_memory_interface
       {
         if(!smt->initialized())
         {
-          ROS_WARN("Shared memory transport was shut down while we were waiting for connections. Stopping callback thread!");
+          ROS_WARN("%s: Shared memory transport was shut down while we were waiting for connections. Stopping callback thread!", m_nh->getNamespace().c_str());
           return;
         }
         if(!smt->connected())
@@ -151,7 +161,7 @@ namespace shared_memory_interface
         {
           break;
         }
-        ROS_WARN_STREAM_THROTTLE(1.0, "Trying to connect to field " << smt->getFieldName() << "...");
+        ROS_WARN_STREAM_THROTTLE(1.0, m_nh->getNamespace() << ": Trying to connect to field " << smt->getFieldName() << "...");
         loop_rate.sleep();
         boost::this_thread::interruption_point();
       }
@@ -165,11 +175,6 @@ namespace shared_memory_interface
       {
         try
         {
-//          if(!smt->initialized())
-//          {
-//            ROS_WARN("Shared memory transport was shut down. Stopping callback thread!");
-//            return;
-//          }
           if(m_use_polling)
           {
             smt->awaitNewDataPolled(msg);
@@ -182,8 +187,7 @@ namespace shared_memory_interface
         }
         catch(ros::serialization::StreamOverrunException& ex)
         {
-          ros::NodeHandle nh("~");
-          ROS_ERROR("Deserialization failed for node %s, topic %s! The string was:\n%s", nh.getNamespace().c_str(), m_full_topic_path.c_str(), serialized_data.c_str());
+          ROS_ERROR("%s: Deserialization failed for topic %s! The string was:\n%s", m_nh->getNamespace().c_str(), m_full_topic_path.c_str(), serialized_data.c_str());
         }
         boost::this_thread::interruption_point();
       }

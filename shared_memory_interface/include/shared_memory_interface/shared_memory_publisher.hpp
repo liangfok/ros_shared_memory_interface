@@ -42,7 +42,9 @@ namespace shared_memory_interface
   public:
     Publisher(bool write_to_rostopic = true)
     {
+      m_nh = NULL;
       m_write_to_rostopic = write_to_rostopic;
+      advertised = false;
     }
 
     ~Publisher()
@@ -54,21 +56,30 @@ namespace shared_memory_interface
       m_interface_name = shared_memory_interface_name;
       configureTopicPaths(m_interface_name, topic_name, m_full_ros_topic_path, m_full_topic_path);
       m_smt.configure(m_interface_name, m_full_topic_path, true);
-      m_smt.connect();
+      assert(m_smt.connect()); //connection CANNOT fail, since we literally just created the field
 
       if(m_write_to_rostopic)
       {
         ros::NodeHandle nh("~");
         m_ros_publisher = nh.advertise<T>(m_full_ros_topic_path, 1, true);
       }
+      advertised = true;
     }
 
     bool publish(T& data)
     {
+      if(!m_nh)
+      {
+        m_nh = new ros::NodeHandle("~");
+      }
       if(!m_smt.connected())
       {
-        ROS_WARN("Tried to publish on an unconfigured shared memory publisher!");
-        return false;
+        if(!m_smt.connect())
+        {
+          ROS_WARN_THROTTLE(1.0, "%s: Tried to publish on an unconfigured shared memory publisher: %s!", m_nh->getNamespace().c_str(), m_full_topic_path.c_str());
+          assert(advertised);
+          return false;
+        }
       }
 
       if(m_smt.setData(data))
@@ -81,13 +92,15 @@ namespace shared_memory_interface
       }
       else
       {
-        ROS_ERROR("Failed to write to topic %s!", m_full_topic_path.c_str());
+        ROS_ERROR("%s: Failed to write to topic %s!", m_nh->getNamespace().c_str(), m_full_topic_path.c_str());
         return false;
       }
     }
 
   protected:
+    ros::NodeHandle* m_nh;
     SharedMemoryTransport<T> m_smt;
+    bool advertised;
 
     std::string m_interface_name;
     std::string m_full_topic_path;

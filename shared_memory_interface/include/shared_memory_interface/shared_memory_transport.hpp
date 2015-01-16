@@ -40,7 +40,7 @@ namespace shared_memory_interface
   class SharedMemoryTransport
   {
   public:
-    SharedMemoryTransport(unsigned long reservation_size = (2*1048576));//2 Mebibytes
+    SharedMemoryTransport(unsigned long reservation_size = 500000);
     ~SharedMemoryTransport();
 
     static bool createMemory(std::string interface_name, unsigned int size);

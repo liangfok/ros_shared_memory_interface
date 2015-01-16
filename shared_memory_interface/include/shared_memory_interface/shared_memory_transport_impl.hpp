@@ -130,15 +130,15 @@ namespace shared_memory_interface
 
     m_field_name = field_name;
     m_interface_name = interface_name;
-    m_even_buffer_name = m_field_name + "_even";
-    m_even_length_name = m_field_name + "_even_length";
-    m_odd_buffer_name = m_field_name + "_odd";
-    m_odd_length_name = m_field_name + "_odd_length";
-    m_buffer_sequence_id_name = m_field_name + "_buffer_sequence_id";
-    m_condition_name = m_field_name + "_condition";
-    m_condition_mutex_name = m_field_name + "_condition_mutex";
-    m_invalid_flag_name = m_field_name + "_invalid";
-    m_exists_flag_name = m_field_name + "_exists";
+    m_even_buffer_name = m_field_name + "_e";
+    m_even_length_name = m_field_name + "_el";
+    m_odd_buffer_name = m_field_name + "_o";
+    m_odd_length_name = m_field_name + "_ol";
+    m_buffer_sequence_id_name = m_field_name + "_b";
+    m_condition_name = m_field_name + "_c";
+    m_condition_mutex_name = m_field_name + "_cm";
+    m_invalid_flag_name = m_field_name + "_i";
+    m_exists_flag_name = m_field_name + "_ex";
 
     m_string_allocator = new SMCharAllocator(segment->get_segment_manager());
 
@@ -174,6 +174,7 @@ namespace shared_memory_interface
     ROS_ID_DEBUG_THROTTLED_STREAM("Attempting to connect to " << m_interface_name << ":" << m_field_name << ".");
     if(timeout == 0.0 && (segment->find<bool>(m_exists_flag_name.c_str()).first == NULL))
     {
+      ROS_ID_ERROR_THROTTLED_STREAM("Failed while attempting to connect to " << m_interface_name << ":" << m_field_name << " with immediate timeout!");
       return false;
     }
     else if(timeout < 0.0)
@@ -191,6 +192,7 @@ namespace shared_memory_interface
         ROS_ID_WARN_THROTTLED_STREAM("Waiting for field \"" << m_field_name << "\" to exist");
         if(boost::get_system_time() >= timeout_time)
         {
+          ROS_ID_ERROR_THROTTLED_STREAM("Failed while attempting to connect to " << m_interface_name << ":" << m_field_name << " with timeout " << timeout << "!");
           return false;
         }
       }
@@ -233,15 +235,20 @@ namespace shared_memory_interface
       segment->find<SMString>(m_even_buffer_name.c_str()).first->resize(m_reservation_size);
       segment->find<SMString>(m_odd_buffer_name.c_str()).first->resize(m_reservation_size);
 
-      segment->construct<boost::interprocess::interprocess_condition>(m_condition_name.c_str())(); //(segment->get_segment_manager());
-      segment->construct<boost::interprocess::interprocess_mutex>(m_condition_mutex_name.c_str())(); //(segment->get_segment_manager());
+      segment->construct<boost::interprocess::interprocess_condition>(m_condition_name.c_str())();
+      segment->construct<boost::interprocess::interprocess_mutex>(m_condition_mutex_name.c_str())();
 
       segment->construct<bool>(m_invalid_flag_name.c_str())(true); //field is invalid until someone writes actual data to it
       segment->construct<bool>(m_exists_flag_name.c_str())(true); //once we construct this, everyone will assume the field exists
     }
     catch(boost::interprocess::interprocess_exception &ex)
     {
-      ROS_ID_INFO_STREAM("Exception " << ex.what() << " thrown while creating new field \"" << m_field_name << "\"!");
+      ROS_ID_ERROR_STREAM("\n\n\n\n=======================================================================================================");
+      ROS_ID_ERROR_STREAM("=======================================================================================================");
+      ROS_ID_ERROR_STREAM("CRITICAL ERROR! EXCEPTION " << ex.what() << " THROWN WHILE CREATING \"" << m_field_name << "\"! THIS SHOULD NEVER HAPPEN!");
+      ROS_ID_ERROR_STREAM("=======================================================================================================");
+      ROS_ID_ERROR_STREAM("=======================================================================================================\n\n\n\n");
+
       PRINT_TRACE_EXIT
       return false;
     }
