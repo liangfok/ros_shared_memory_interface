@@ -174,7 +174,7 @@ namespace shared_memory_interface
     ROS_ID_DEBUG_THROTTLED_STREAM("Attempting to connect to " << m_interface_name << ":" << m_field_name << ".");
     if(timeout == 0.0 && (segment->find<bool>(m_exists_flag_name.c_str()).first == NULL))
     {
-      ROS_ID_ERROR_THROTTLED_STREAM("Failed while attempting to connect to " << m_interface_name << ":" << m_field_name << " with immediate timeout!");
+      ROS_ID_DEBUG_THROTTLED_STREAM("Failed while attempting to connect to " << m_interface_name << ":" << m_field_name << " with immediate timeout!");
       return false;
     }
     else if(timeout < 0.0)
@@ -192,7 +192,7 @@ namespace shared_memory_interface
         ROS_ID_WARN_THROTTLED_STREAM("Waiting for field \"" << m_field_name << "\" to exist");
         if(boost::get_system_time() >= timeout_time)
         {
-          ROS_ID_ERROR_THROTTLED_STREAM("Failed while attempting to connect to " << m_interface_name << ":" << m_field_name << " with timeout " << timeout << "!");
+          ROS_ID_WARN_THROTTLED_STREAM("Failed while attempting to connect to " << m_interface_name << ":" << m_field_name << " with timeout " << timeout << "!");
           return false;
         }
       }
