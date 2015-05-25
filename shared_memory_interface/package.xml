@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+
+<package format="2">
+  <name>shared_memory_interface</name>
+  <version>0.0.0</version>
+  <description>Contains a library for communicating ROS messages over a shared memory transport layer.</description>
+  <maintainer email="josh@todo.todo">Joshua James</maintainer>
+  <license>BSD</license>
+  <author email="josh@todo.todo">Joshua James</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>roslib</depend>
+  <!-- <build_depend>shared_memory_interface</build_depend> -->
+  <build_depend>message_generation</build_depend>
+
+  <build_export_depend>boost</build_export_depend>
+  
+  <exec_depend>message_runtime</exec_depend>
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <!-- Other tools can request additional information be placed here -->
+    <!-- <cpp cflags="-I${prefix}/include" lflags="-L${prefix}/lib -lshared_memory_interface"/> -->
+  </export>
+</package>
+
+

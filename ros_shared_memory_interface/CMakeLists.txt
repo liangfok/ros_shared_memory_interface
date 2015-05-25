@@ -1,14 +1,10 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(shared_memory_interface_tutorials)
+project(ros_shared_memory_interface)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS 
-	shared_memory_interface
-	roscpp
-	roslib
-)
+find_package(catkin REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -82,7 +78,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES ros_shared_memory_interface
-  CATKIN_DEPENDS shared_memory_interface
+#  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
 )
 
@@ -90,14 +86,9 @@ catkin_package(
 ## Build ##
 ###########
 
-# message("** catkin_INCLUDE_DIRS: " ${catkin_INCLUDE_DIRS})
-
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 # include_directories(include)
-include_directories(
-  ${catkin_INCLUDE_DIRS}
-)
 
 ## Declare a cpp library
 # add_library(ros_shared_memory_interface
@@ -106,23 +97,6 @@ include_directories(
 
 ## Declare a cpp executable
 # add_executable(ros_shared_memory_interface_node src/ros_shared_memory_interface_node.cpp)
-add_executable(tutorial_ros_talker 
-	src/tutorial_ros_talker.cpp
-)
-
-target_link_libraries(tutorial_ros_talker
-	${catkin_LIBRARIES} 
-	shared_memory_interface
-)
-
-add_executable(tutorial_ros_listener 
-	src/tutorial_ros_listener.cpp
-)
-
-target_link_libraries(tutorial_ros_listener 
-	${catkin_LIBRARIES}
-	shared_memory_interface
-)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
@@ -180,29 +154,3 @@ target_link_libraries(tutorial_ros_listener
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-
-# #==================================================================================
-# cmake_minimum_required(VERSION 2.4.6)
-# include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
-
-# # Set the build type.  Options are:
-# #  Coverage       : w/ debug symbols, w/o optimization, w/ code-coverage
-# #  Debug          : w/ debug symbols, w/o optimization
-# #  Release        : w/o debug symbols, w/ optimization
-# #  RelWithDebInfo : w/ debug symbols, w/ optimization
-# #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
-# #set(ROS_BUILD_TYPE RelWithDebInfo)
-
-# rosbuild_init()
-
-# #set the default path for built executables to the "bin" directory
-# set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-# #set the default path for built libraries to the "lib" directory
-# set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
-
-# #ROS tutorial
-# rosbuild_add_executable(tutorial_ros_talker src/tutorial_ros_talker.cpp)
-# target_link_libraries(tutorial_ros_talker shared_memory_interface)
-
-# rosbuild_add_executable(tutorial_ros_listener src/tutorial_ros_listener.cpp)
-# target_link_libraries(tutorial_ros_listener shared_memory_interface)
