@@ -107,7 +107,7 @@ include_directories(include SYSTEM ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 #   ${Boost_LIBRARIES} -lrt
 # )
 
-message("** catkin_LIBRARIES: " ${catkin_LIBRARIES})
+# message("** catkin_LIBRARIES: " ${catkin_LIBRARIES})
 
 ## Shared memory remover
 add_executable(shared_memory_remover
