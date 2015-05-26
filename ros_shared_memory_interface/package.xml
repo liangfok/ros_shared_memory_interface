@@ -1,7 +1,10 @@
 <?xml version="1.0"?>
-<package>
+<package format="2">
+
   <name>ros_shared_memory_interface</name>
+
   <version>0.0.0</version>
+
   <description>The ros_shared_memory_interface package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
@@ -41,8 +44,8 @@
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   
-  <run_depend>shared_memory_interface</run_depend>
-  <run_depend>shared_memory_interface_tutorials</run_depend>
+  <exec_depend>shared_memory_interface</exec_depend>
+  <exec_depend>shared_memory_interface_tutorials</exec_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
