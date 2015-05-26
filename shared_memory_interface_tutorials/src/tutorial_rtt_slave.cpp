@@ -1,7 +1,7 @@
 /*
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2014, Joshua James
+ *  Copyright (c) 2014, Chien-Liang Fok
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -29,55 +29,36 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "shared_memory_interface/shared_memory_manager.hpp"
-#include <stdio.h>
-#include <pwd.h>
+#include "ros/ros.h"
+#include "shared_memory_interface/shared_memory_publisher.hpp"
+#include "shared_memory_interface/shared_memory_subscriber.hpp"
+#include <std_msgs/Float64MultiArray.h>
 
-namespace shared_memory_interface
+#define WRITE_TO_ROS_TOPIC false
+#define LISTEN_TO_ROS_TOPIC false
+#define USE_POLLING true
+
+shared_memory_interface::Publisher<std_msgs::Float64MultiArray> pub(WRITE_TO_ROS_TOPIC);
+
+void rttTxCallback(std_msgs::Float64MultiArray& msg)
 {
-  SharedMemoryManager::SharedMemoryManager(const ros::NodeHandle& nh) :
-      m_nh(nh)
-  {
-    m_nh.param("loop_rate", m_loop_rate, 10.0);
-    m_nh.param("interface_name", m_interface_name, std::string("smi"));
-    m_nh.param("memory_size", m_memory_size, 512.0 * 1024.0 * 1024.0); //param is double because ros apparently doesn't like unsigned int
-    if(!createMemory(m_interface_name, (unsigned int) m_memory_size))
-    {
-      ROS_WARN("Another shared_memory_manager appears to be running. Shutting down!");
-      ros::shutdown();
-      m_memory_created = false;
-      return;
-    }
-    m_memory_created = true;
-  }
-
-  SharedMemoryManager::~SharedMemoryManager()
-  {
-    if(m_memory_created)
-    {
-      destroyMemory(m_interface_name);
-    }
-  }
-
-  void SharedMemoryManager::spin()
-  {
-    ROS_INFO("SharedMemoryManager started.");
-    ros::Rate loop_rate(m_loop_rate);
-    while(ros::ok())
-    {
-      ros::spinOnce();
-      loop_rate.sleep();
-    }
-  }
+  pub.publish(msg);
 }
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "shared_memory_manager", ros::init_options::AnonymousName);
-  ros::NodeHandle nh("~");
+  ros::init(argc, argv, "slave", ros::init_options::AnonymousName);
+  ros::NodeHandle n;
 
-  shared_memory_interface::SharedMemoryManager node(nh);
-  node.spin();
+  pub.advertise("/rtt_rx");
 
+  shared_memory_interface::Subscriber<std_msgs::Float64MultiArray> sub(LISTEN_TO_ROS_TOPIC, USE_POLLING);
+  sub.subscribe("/rtt_tx", boost::bind(&rttTxCallback, _1));
+
+  ros::Rate loop_rate(0.1);
+  while (ros::ok())
+  {
+    loop_rate.sleep();
+  }
   return 0;
 }

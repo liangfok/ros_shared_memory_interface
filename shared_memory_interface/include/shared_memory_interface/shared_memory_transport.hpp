@@ -32,77 +32,73 @@
 #ifndef SHARED_MEMORY_TRANSPORT_HPP
 #define SHARED_MEMORY_TRANSPORT_HPP
 
-#include <ros/ros.h>
-#include <ros/serialization.h>
-#include <ros/parameter_adapter.h>
-#include <ros/subscription_callback_helper.h>
-#include <ros/message_deserializer.h>
-#include <ros/package.h>
-
-#include <vector>
-#include <stdio.h>
-#include <algorithm>
-#include <stdlib.h>
-
-#include <boost/interprocess/shared_memory_object.hpp>
-#include <boost/interprocess/mapped_region.hpp>
-#include <boost/interprocess/managed_shared_memory.hpp>
-#include <boost/interprocess/sync/scoped_lock.hpp>
-
-#include <boost/interprocess/containers/vector.hpp>
-#include <boost/interprocess/containers/string.hpp>
-#include <boost/interprocess/allocators/allocator.hpp>
-
-#include <boost/interprocess/exceptions.hpp>
-#include <boost/thread/thread_time.hpp>
-
-#include <boost/interprocess/sync/interprocess_mutex.hpp>
-#include <boost/interprocess/sync/interprocess_condition.hpp>
-
-#include <boost/bind.hpp>
-#include <boost/function.hpp>
-#include <boost/thread.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/type_traits.hpp>
-
 #include "shared_memory_utils.hpp"
 
 namespace shared_memory_interface
 {
+  template<typename T> //T must be the type of a ros message
   class SharedMemoryTransport
   {
   public:
-    SharedMemoryTransport();
+    SharedMemoryTransport(unsigned long reservation_size = 500000);
     ~SharedMemoryTransport();
 
     static bool createMemory(std::string interface_name, unsigned int size);
     static void destroyMemory(std::string interface_name);
 
     bool initialized();
-    void configure(std::string interface_name, std::string field_name);
+    bool connected();
+    void configure(std::string interface_name, std::string field_name, bool create_field = false);
+    bool connect(double timeout = 0.0);
     bool createField();
-    bool getData(std::string& data);
-    bool setData(std::string data);
+    bool getData(T& data);
+    bool setData(T& data);
 
-    bool fieldExists();
+    std::string getFieldName();
+
     bool hasData(); //returns true if the field has already been configured
-    bool awaitNewDataPolled(std::string& data, double timeout = -1);
-    bool awaitNewData(std::string& data, double timeout = -1);
+    bool awaitNewDataPolled(T& data, double timeout = -1);
+    bool awaitNewData(T& data, double timeout = -1);
 
   private:
     boost::interprocess::managed_shared_memory* segment;
     boost::thread* m_watchdog_thread;
     void watchdogFunction();
 
+    unsigned long m_reservation_size;
+
     bool m_initialized;
+    bool m_connected;
+    std::string m_interface_name;
     std::string m_field_name;
     std::string m_even_buffer_name;
+    std::string m_even_length_name;
     std::string m_odd_buffer_name;
+    std::string m_odd_length_name;
     std::string m_buffer_sequence_id_name;
-    std::string m_invalid_flag_name;
     std::string m_condition_name;
     std::string m_condition_mutex_name;
+    std::string m_invalid_flag_name;
     std::string m_exists_flag_name;
+
+    SMCharAllocator* m_string_allocator;
+
+    uint32_t* m_buffer_sequence_id_ptr;
+    bool* m_invalid_ptr;
+    SMString* m_even_string_ptr;
+    unsigned char* m_even_data_ptr;
+    uint32_t* m_even_length_ptr;
+    SMString* m_odd_string_ptr;
+    unsigned char* m_odd_data_ptr;
+    uint32_t* m_odd_length_ptr;
+    boost::interprocess::interprocess_condition* m_condition_ptr;
+    boost::interprocess::interprocess_mutex* m_condition_mutex_ptr;
+
+    //remembered flags
+    bool m_already_read_valid;
+    bool m_already_set_valid;
+
+    uint32_t m_last_read_buffer_sequence_id;
   };
 
 }

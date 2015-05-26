@@ -5,7 +5,7 @@ project(shared_memory_interface)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS 
-  message_generation
+  # message_generation
   std_msgs
   roscpp
   roslib
@@ -46,10 +46,10 @@ find_package(PythonLibs REQUIRED)
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-add_message_files(
-  FILES
-  Benchmark.msg
-)
+# add_message_files(
+#   FILES
+#   Benchmark.msg
+# )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -66,10 +66,10 @@ add_message_files(
 # )
 
 ## Generate added messages and services with any dependencies listed here
-generate_messages(
-   DEPENDENCIES
-   std_msgs  # Or other packages containing msgs
-)
+# generate_messages(
+#    DEPENDENCIES
+#    std_msgs  # Or other packages containing msgs
+# )
 
 ###################################
 ## catkin specific configuration ##
@@ -82,8 +82,9 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES shared_memory_interface
-  CATKIN_DEPENDS message_runtime roscpp roslib
+  # LIBRARIES shared_memory_interface
+  # CATKIN_DEPENDS message_runtime roscpp roslib
+  CATKIN_DEPENDS roscpp roslib
   DEPENDS Boost
 )
 
@@ -97,24 +98,35 @@ catkin_package(
 include_directories(include SYSTEM ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 
 ## Shared memory library
-add_library(shared_memory_interface
-  src/shared_memory_transport.cpp
-)
+# add_library(shared_memory_interface
+#   src/shared_memory_transport.cpp
+# )
 
-target_link_libraries(shared_memory_interface
+# target_link_libraries(shared_memory_interface
+#   ${catkin_LIBRARIES}
+#   ${Boost_LIBRARIES} -lrt
+# )
+
+message("** catkin_LIBRARIES: " ${catkin_LIBRARIES})
+
+## Shared memory remover
+add_executable(shared_memory_remover
+  src/shared_memory_remover.cpp)
+
+target_link_libraries(shared_memory_remover
+  # shared_memory_interface
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES} -lrt
 )
-
-message("** catkin_LIBRARIES: " ${catkin_LIBRARIES})
 
 ## Shared memory manager
 add_executable(shared_memory_manager
   src/shared_memory_manager.cpp)
 
 target_link_libraries(shared_memory_manager
-  shared_memory_interface
-  # ${catkin_LIBRARIES}
+  # shared_memory_interface
+  ${catkin_LIBRARIES}
+  ${Boost_LIBRARIES} -lrt
 )
 
 ## Add cmake target dependencies of the executable/library
@@ -173,34 +185,3 @@ target_link_libraries(shared_memory_manager
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-
-# #==================================================================================
-# cmake_minimum_required(VERSION 2.4.6)
-# include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
-
-# # Set the build type.  Options are:
-# #  Coverage       : w/ debug symbols, w/o optimization, w/ code-coverage
-# #  Debug          : w/ debug symbols, w/o optimization
-# #  Release        : w/o debug symbols, w/ optimization
-# #  RelWithDebInfo : w/ debug symbols, w/ optimization
-# #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
-# #set(ROS_BUILD_TYPE RelWithDebInfo)
-
-# rosbuild_init()
-
-# set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-# set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
-
-# rosbuild_genmsg()
-
-# find_package(Boost REQUIRED COMPONENTS thread python)
-# find_package(PythonLibs REQUIRED)
-# include_directories(include ../common/include SYSTEM ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
-
-# #shared memory library
-# rosbuild_add_library(shared_memory_interface src/shared_memory_transport.cpp)
-# target_link_libraries(shared_memory_interface ${Boost_LIBRARIES} -lrt)
-
-# #manager
-# rosbuild_add_executable(shared_memory_manager src/shared_memory_manager.cpp)
-# target_link_libraries(shared_memory_manager shared_memory_interface)
