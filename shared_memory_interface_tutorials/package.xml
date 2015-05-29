@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+
+<package format="2">
+  <name>shared_memory_interface_tutorials</name>
+  <version>0.0.0</version>
+  <description>Contains examples of how to use shared_memory_interface.</description>
+  <maintainer email="josh@todo.todo">Joshua James</maintainer>
+  <license>BSD</license>
+  <author email="josh@todo.todo">Joshua James</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>roslib</depend>
+  <depend>shared_memory_interface</depend>
+  
+  <!-- <build_export_depend>shared_memory_interface</build_export_depend> -->
+
+  <!-- <exec_depend>shared_memory_interface</exec_depend> -->
+
+  <!-- <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/shared_memory_interface_tutorials</url>
+  <depend package="roscpp"/>
+  <depend package="shared_memory_interface"/>
+ -->
+</package>
+
+

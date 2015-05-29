@@ -29,45 +29,20 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "shared_memory_interface/shared_memory_interface.hpp"
-#include <signal.h>
-using namespace shared_memory_interface;
-
-bool ok;
-void loopBreaker(int sig)
-{
-  ok = false;
-}
-
-void commandCallback(std::vector<double>& msg)
-{
-  std::cerr << "Setting actuator effort to [";
-  for(unsigned int i = 0; i < msg.size(); i++)
-  {
-    if(i == 0)
-    {
-      std::cerr << msg.at(i);
-    }
-    else
-    {
-      std::cerr << ", " << msg.at(i);
-    }
-  }
-  std::cerr << "]" << std::endl;
-}
+#include "shared_memory_interface/shared_memory_utils.hpp"
 
 int main(int argc, char **argv)
 {
-  signal(SIGINT, loopBreaker);
-  SharedMemoryInterface smi("smi");
-  smi.subscribeFloatingPointVector("command", boost::bind(&commandCallback, _1));
+  std::string interface_name = "smi";
 
-  ok = true;
-  while(ok)
+  if(argc >= 2)
   {
-    usleep(100000);//10hz
+    interface_name = std::string(argv[1]);
   }
+
+  std::cerr << "Removing shared interface \"" << interface_name << "\"" << std::endl;
+
+  shared_memory_interface::destroyMemory(interface_name);
 
   return 0;
 }
-

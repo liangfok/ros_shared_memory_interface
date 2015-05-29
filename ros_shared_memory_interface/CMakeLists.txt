@@ -1,14 +1,10 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(shared_memory_interface_tutorials)
+project(ros_shared_memory_interface)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS 
-	shared_memory_interface
-	roscpp
-	roslib
-)
+find_package(catkin REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -82,7 +78,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES ros_shared_memory_interface
-  CATKIN_DEPENDS shared_memory_interface
+#  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
 )
 
@@ -90,14 +86,9 @@ catkin_package(
 ## Build ##
 ###########
 
-# message("** catkin_INCLUDE_DIRS: " ${catkin_INCLUDE_DIRS})
-
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 # include_directories(include)
-include_directories(
-  ${catkin_INCLUDE_DIRS}
-)
 
 ## Declare a cpp library
 # add_library(ros_shared_memory_interface
@@ -106,32 +97,6 @@ include_directories(
 
 ## Declare a cpp executable
 # add_executable(ros_shared_memory_interface_node src/ros_shared_memory_interface_node.cpp)
-add_executable(tutorial_ros_talker src/tutorial_ros_talker.cpp)
-
-target_link_libraries(tutorial_ros_talker
-	${catkin_LIBRARIES}
-	${Boost_LIBRARIES} -lrt
-)
-
-add_executable(tutorial_ros_listener src/tutorial_ros_listener.cpp)
-
-target_link_libraries(tutorial_ros_listener 
-	${catkin_LIBRARIES}
-	${Boost_LIBRARIES} -lrt
-)
-
-#Benchmark
-add_executable(tutorial_rtt_master src/tutorial_rtt_master.cpp)
-target_link_libraries(tutorial_rtt_master 
-	${catkin_LIBRARIES}
-	${Boost_LIBRARIES} -lrt
-)
-
-add_executable(tutorial_rtt_slave src/tutorial_rtt_slave.cpp)
-target_link_libraries(tutorial_rtt_slave 
-	${catkin_LIBRARIES} 
-	${Boost_LIBRARIES} -lrt
-)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
