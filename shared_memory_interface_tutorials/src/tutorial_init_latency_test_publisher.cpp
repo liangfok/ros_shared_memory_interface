@@ -38,8 +38,6 @@
 #include <iostream>
 
 #define WRITE_TO_ROS_TOPIC false
-#define LISTEN_TO_ROS_TOPIC false
-#define USE_POLLING true
 
 // Declare the messages to transmit
 std_msgs::Float64 msg1, msg2, msg3;
@@ -81,9 +79,9 @@ int main(int argc, char **argv)
     pub2.advertise("/topic2");
     pub3.advertise("/topic3");
 
-    ROS_INFO("Publishing initial messages...");
-    if (!publishMsgs())
-        return -1;
+    // ROS_INFO("Publishing initial messages...");
+    // if (!publishMsgs())
+    //     return -1;
 
     // Wait for user input
     ROS_INFO("Press any key to start publishing...");

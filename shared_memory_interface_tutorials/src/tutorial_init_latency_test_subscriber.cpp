@@ -34,7 +34,6 @@
 #include "shared_memory_interface/shared_memory_subscriber.hpp"
 #include "std_msgs/Float64.h"
 
-#define WRITE_TO_ROS_TOPIC false
 #define LISTEN_TO_ROS_TOPIC false
 #define USE_POLLING false
 
