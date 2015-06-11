@@ -36,50 +36,48 @@
 
 #define WRITE_TO_ROS_TOPIC false
 #define LISTEN_TO_ROS_TOPIC false
-#define USE_POLLING true
+#define USE_POLLING false
 
-bool firstRcv1 = true;
-bool firstRcv2 = true;
-bool firstRcv3 = true;
+int rcvCnt1 = 0, rcvCnt2 = 0, rcvCnt3 = 0;
 
-static void printRcvTime(std::string callbackName, double value)
+struct timeval tv1, tv2, tv3;
+double data1, data2, data3;
+
+static void printRcvTime(std::string callbackName, struct timeval & tv, double value)
 {
   char buffer[30];
-  struct timeval tv;
   time_t curtime;
-
-  gettimeofday(&tv, NULL); 
-  curtime=tv.tv_sec;
+  curtime = tv.tv_sec;
           
-  strftime(buffer,30,"%m-%d-%Y  %T.", localtime(&curtime));
+  strftime(buffer, 30, "%m-%d-%Y  %T.", localtime(&curtime));
 
   ROS_INFO_STREAM("Subscriber: " << callbackName << " called, time = " << buffer << tv.tv_usec << ", value = " << value);
 }
 
 void callback1(std_msgs::Float64& msg)
 {
-  if (firstRcv1)
+  if (++rcvCnt1 == 2)
   {
-    printRcvTime("callback1", msg.data);
-    firstRcv1 = false;
+    gettimeofday(&tv1, NULL);
+    data1 = msg.data; 
   }
 }
 
 void callback2(std_msgs::Float64& msg)
 {
-  if (firstRcv2)
+  if (++rcvCnt2 == 2)
   {
-    printRcvTime("callback2", msg.data);
-    firstRcv2 = false;
+    gettimeofday(&tv2, NULL);
+    data2 = msg.data;
   }
 }
 
 void callback3(std_msgs::Float64& msg)
 {
-  if (firstRcv3)
+  if (++rcvCnt3 == 2)
   {
-    printRcvTime("callback3", msg.data);
-    firstRcv3 = false;
+    gettimeofday(&tv3, NULL);
+    data3 = msg.data;
   }
 }
 
@@ -92,17 +90,24 @@ int main(int argc, char **argv)
   shared_memory_interface::Subscriber<std_msgs::Float64> sub1(LISTEN_TO_ROS_TOPIC, USE_POLLING);
   shared_memory_interface::Subscriber<std_msgs::Float64> sub2(LISTEN_TO_ROS_TOPIC, USE_POLLING);
   shared_memory_interface::Subscriber<std_msgs::Float64> sub3(LISTEN_TO_ROS_TOPIC, USE_POLLING);
+  
   sub1.subscribe("/topic1", boost::bind(&callback1, _1));
-  sub1.subscribe("/topic2", boost::bind(&callback2, _1));
-  sub1.subscribe("/topic3", boost::bind(&callback3, _1));
+  sub2.subscribe("/topic2", boost::bind(&callback2, _1));
+  sub3.subscribe("/topic3", boost::bind(&callback3, _1));
 
   ros::Rate loop_rate(1000);
-  while (ros::ok() && (firstRcv1 || firstRcv2 || firstRcv3))
+
+  while (ros::ok() && (rcvCnt1 < 2 || rcvCnt2 < 2 || rcvCnt3 < 2))
   {
     loop_rate.sleep();
   }
 
+  printRcvTime("callback1", tv1, data1);
+  printRcvTime("callback2", tv2, data2);
+  printRcvTime("callback3", tv3, data3);
+
   ROS_INFO("Subscriber done, press ctrl+c to exit...");
+
   ros::spin();
   return 0;
 }

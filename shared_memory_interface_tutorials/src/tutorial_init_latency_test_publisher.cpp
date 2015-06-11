@@ -41,72 +41,84 @@
 #define LISTEN_TO_ROS_TOPIC false
 #define USE_POLLING true
 
-int main(int argc, char **argv)
+// Declare the messages to transmit
+std_msgs::Float64 msg1, msg2, msg3;
+
+// Declare the publishers
+shared_memory_interface::Publisher<std_msgs::Float64> pub1(WRITE_TO_ROS_TOPIC);
+shared_memory_interface::Publisher<std_msgs::Float64> pub2(WRITE_TO_ROS_TOPIC);
+shared_memory_interface::Publisher<std_msgs::Float64> pub3(WRITE_TO_ROS_TOPIC);
+
+bool publishMsgs()
 {
-  ros::init(argc, argv, "publisher", ros::init_options::AnonymousName);
-  ros::NodeHandle nh;
-
-  // Declare the publishers
-  shared_memory_interface::Publisher<std_msgs::Float64> pub1(WRITE_TO_ROS_TOPIC);
-  shared_memory_interface::Publisher<std_msgs::Float64> pub2(WRITE_TO_ROS_TOPIC);
-  shared_memory_interface::Publisher<std_msgs::Float64> pub3(WRITE_TO_ROS_TOPIC);
-
-  pub1.advertise("/topic1");
-  pub2.advertise("/topic2");
-  pub3.advertise("/topic3");
-
-  // Wait for user input
-  ROS_INFO("Press any key to start publishing...");
-  getchar();
-
-  // Declare the messages to transmit
-  std_msgs::Float64 msg1, msg2, msg3;
-
-  bool firstTime = true;
-  double loopCount = 0;
-
-  ros::Rate loop_rate(1000);
-  while (ros::ok()  && loopCount < 2000)
-  {
-    msg1.data = msg2.data = msg3.data = loopCount++;
-
-    if (firstTime)
-    {
-      char buffer[30];
-      struct timeval tv;
-      time_t curtime;
-
-      gettimeofday(&tv, NULL); 
-      curtime = tv.tv_sec;
-              
-      strftime(buffer,30,"%m-%d-%Y  %T.", localtime(&curtime));
-
-      ROS_INFO_STREAM("Publisher: Starting to publish at time " << buffer << tv.tv_usec);
-      firstTime = false;
-    }
-
     if (!pub1.publish(msg1))
     {
          ROS_ERROR("Publisher: Failed to publish message on /topic1. Aborting.");
-         break;
+         return false;
     }
 
     if (!pub2.publish(msg2))
     {
          ROS_ERROR("Publisher: Failed to publish message on /topic2. Aborting.");
-         break;
+         return false;
     }
 
     if (!pub3.publish(msg3))
     {
          ROS_ERROR("Publisher: Failed to publish message on /topic3. Aborting.");
-         break;
+         return false;
     }
 
-    loop_rate.sleep();
-  }
+    return true;
+}
 
-  ROS_INFO("Publisher done, press ctrl+c to exit...");
-  ros::spin();
-  return 0;
+int main(int argc, char **argv)
+{
+    ros::init(argc, argv, "publisher", ros::init_options::AnonymousName);
+    ros::NodeHandle nh;
+
+    pub1.advertise("/topic1");
+    pub2.advertise("/topic2");
+    pub3.advertise("/topic3");
+
+    ROS_INFO("Publishing initial messages...");
+    if (!publishMsgs())
+        return -1;
+
+    // Wait for user input
+    ROS_INFO("Press any key to start publishing...");
+    getchar();
+
+    bool firstTime = true;
+    double loopCount = 0;
+
+    ros::Rate loop_rate(1000);
+    while (ros::ok()  && loopCount < 1)
+    {
+        msg1.data = msg2.data = msg3.data = loopCount++;
+    
+        if (firstTime)
+        {
+            char buffer[30];
+            struct timeval tv;
+            time_t curtime;
+      
+            gettimeofday(&tv, NULL); 
+            curtime = tv.tv_sec;
+                    
+            strftime(buffer,30,"%m-%d-%Y  %T.", localtime(&curtime));
+      
+            ROS_INFO_STREAM("Publisher: Starting to publish at time " << buffer << tv.tv_usec);
+            firstTime = false;
+        }
+    
+        if (!publishMsgs())
+            break;
+    
+        loop_rate.sleep();
+    }
+  
+    ROS_INFO("Publisher done, press ctrl+c to exit...");
+    ros::spin();
+    return 0;
 }
