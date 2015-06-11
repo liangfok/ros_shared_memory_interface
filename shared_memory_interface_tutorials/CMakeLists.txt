@@ -115,20 +115,33 @@ target_link_libraries(tutorial_ros_talker
 
 add_executable(tutorial_ros_listener src/tutorial_ros_listener.cpp)
 
-target_link_libraries(tutorial_ros_listener 
+target_link_libraries(tutorial_ros_listener
 	${catkin_LIBRARIES}
 	${Boost_LIBRARIES} -lrt
 )
 
 #Benchmark
 add_executable(tutorial_rtt_master src/tutorial_rtt_master.cpp)
-target_link_libraries(tutorial_rtt_master 
+target_link_libraries(tutorial_rtt_master
 	${catkin_LIBRARIES}
 	${Boost_LIBRARIES} -lrt
 )
 
 add_executable(tutorial_rtt_slave src/tutorial_rtt_slave.cpp)
-target_link_libraries(tutorial_rtt_slave 
+target_link_libraries(tutorial_rtt_slave
+	${catkin_LIBRARIES}
+	${Boost_LIBRARIES} -lrt
+)
+
+#Initial latency test
+add_executable(tutorial_init_latency_test_controller src/tutorial_init_latency_test_controller.cpp)
+target_link_libraries(tutorial_init_latency_test_controller
+	${catkin_LIBRARIES}
+	${Boost_LIBRARIES} -lrt
+)
+
+add_executable(tutorial_init_latency_test_robot src/tutorial_init_latency_test_robot.cpp)
+target_link_libraries(tutorial_init_latency_test_robot
 	${catkin_LIBRARIES} 
 	${Boost_LIBRARIES} -lrt
 )
