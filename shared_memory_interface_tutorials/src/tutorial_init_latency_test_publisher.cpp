@@ -31,13 +31,13 @@
 
 #include "ros/ros.h"
 #include "shared_memory_interface/shared_memory_publisher.hpp"
-// #include "shared_memory_interface/shared_memory_subscriber.hpp"
-// #include <std_msgs/Float64MultiArray.h>
 #include <std_msgs/Float64.h>
 
 #include <iostream>
 
 #define WRITE_TO_ROS_TOPIC false
+#define NUM_TRANSMIT_TIMES 1
+#define PRE_PUBLISH false // must match value in tutorial_init_latency_test_subscriber
 
 // Declare the messages to transmit
 std_msgs::Float64 msg1, msg2, msg3;
@@ -79,23 +79,30 @@ int main(int argc, char **argv)
     pub2.advertise("/topic2");
     pub3.advertise("/topic3");
 
-    // ROS_INFO("Publishing initial messages...");
-    // if (!publishMsgs())
-    //     return -1;
+    if (PRE_PUBLISH)
+    {
+        ROS_INFO("Publisher: Pre-publishing messages...");
+        if (!publishMsgs())
+            return -1;
+    }
+    else
+    {
+        ROS_INFO("Publisher: NOT pre-publishing messages...");
+    }
 
     // Wait for user input
     ROS_INFO("Press any key to start publishing...");
     getchar();
 
-    bool firstTime = true;
     double loopCount = 0;
+    int numTransmitTimes = 0;
 
     ros::Rate loop_rate(1000);
-    while (ros::ok()  && loopCount < 1)
+    while (ros::ok()  && numTransmitTimes < NUM_TRANSMIT_TIMES)
     {
         msg1.data = msg2.data = msg3.data = loopCount++;
     
-        if (firstTime)
+        if (numTransmitTimes == 0)
         {
             char buffer[30];
             struct timeval tv;
@@ -107,16 +114,16 @@ int main(int argc, char **argv)
             strftime(buffer,30,"%m-%d-%Y  %T.", localtime(&curtime));
       
             ROS_INFO_STREAM("Publisher: Starting to publish at time " << buffer << tv.tv_usec);
-            firstTime = false;
         }
     
         if (!publishMsgs())
             break;
-    
+
+        numTransmitTimes++;
         loop_rate.sleep();
     }
   
-    ROS_INFO("Publisher done, press ctrl+c to exit...");
+    ROS_INFO("Publisher: Done, press ctrl+c to exit...");
     ros::spin();
     return 0;
 }

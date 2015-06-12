@@ -30,17 +30,20 @@
  */
 
 #include "ros/ros.h"
-// #include "shared_memory_interface/shared_memory_publisher.hpp"
 #include "shared_memory_interface/shared_memory_subscriber.hpp"
 #include "std_msgs/Float64.h"
 
 #define LISTEN_TO_ROS_TOPIC false
 #define USE_POLLING false
+#define PRE_PUBLISH false // must match value in tutorial_init_latency_test_publisher
 
+// Declare variables for holding receive state
 int rcvCnt1 = 0, rcvCnt2 = 0, rcvCnt3 = 0;
-
+bool rcvd1 = false, rcvd2 = false, rcvd3 = false;
 struct timeval tv1, tv2, tv3;
 double data1, data2, data3;
+
+int doneRcvCnt = 1;
 
 static void printRcvTime(std::string callbackName, struct timeval & tv, double value)
 {
@@ -55,35 +58,41 @@ static void printRcvTime(std::string callbackName, struct timeval & tv, double v
 
 void callback1(std_msgs::Float64& msg)
 {
-  if (++rcvCnt1 == 2)
-  {
-    gettimeofday(&tv1, NULL);
-    data1 = msg.data; 
-  }
+    if (++rcvCnt1 == doneRcvCnt)
+    {
+        gettimeofday(&tv1, NULL);
+        data1 = msg.data;
+        rcvd1 = true;
+    }
 }
 
 void callback2(std_msgs::Float64& msg)
 {
-  if (++rcvCnt2 == 2)
-  {
-    gettimeofday(&tv2, NULL);
-    data2 = msg.data;
-  }
+    if (++rcvCnt2 == doneRcvCnt)
+    {
+        gettimeofday(&tv2, NULL);
+        data2 = msg.data;
+        rcvd2 = true;
+    }
 }
 
 void callback3(std_msgs::Float64& msg)
 {
-  if (++rcvCnt3 == 2)
-  {
-    gettimeofday(&tv3, NULL);
-    data3 = msg.data;
-  }
+    if (++rcvCnt3 == doneRcvCnt)
+    {
+        gettimeofday(&tv3, NULL);
+        data3 = msg.data;
+        rcvd3 = true;
+    }
 }
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "controller", ros::init_options::AnonymousName);
-  ros::NodeHandle nh;
+    ros::init(argc, argv, "subscriber", ros::init_options::AnonymousName);
+    ros::NodeHandle nh;
+
+    if (PRE_PUBLISH)
+        doneRcvCnt = 2;
 
   // Declare three subscribers
   shared_memory_interface::Subscriber<std_msgs::Float64> sub1(LISTEN_TO_ROS_TOPIC, USE_POLLING);
@@ -96,7 +105,7 @@ int main(int argc, char **argv)
 
   ros::Rate loop_rate(1000);
 
-  while (ros::ok() && (rcvCnt1 < 2 || rcvCnt2 < 2 || rcvCnt3 < 2))
+  while (ros::ok() && (!rcvd1 || !rcvd2 || !rcvd3))
   {
     loop_rate.sleep();
   }
@@ -105,7 +114,7 @@ int main(int argc, char **argv)
   printRcvTime("callback2", tv2, data2);
   printRcvTime("callback3", tv3, data3);
 
-  ROS_INFO("Subscriber done, press ctrl+c to exit...");
+  ROS_INFO("Subscriber: Done, press ctrl+c to exit...");
 
   ros::spin();
   return 0;
