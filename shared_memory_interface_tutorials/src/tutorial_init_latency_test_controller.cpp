@@ -40,6 +40,7 @@
 #define USE_POLLING false
 #define WRITE_TO_ROS_TOPIC false
 #define NUM_TRANSMIT_TIMES 1000
+#define PRE_PUBLISH false
 
 // Declare the messages to transmit
 std_msgs::Float64 msg1, msg2;
@@ -125,9 +126,16 @@ int main(int argc, char **argv)
     sub2.subscribe("/robot2", boost::bind(&callback2, _1));
     sub3.subscribe("/robot3", boost::bind(&callback3, _1));
   
-    // ROS_INFO("Controller: Publishing initial messages...");
-    // if (!publishMsgs())
-    //     return -1;
+    if (PRE_PUBLISH)
+    {
+        ROS_INFO("Controller: Pre-publishing messages...");
+        if (!publishMsgs())
+            return -1;
+    }
+    else
+    {
+        ROS_INFO("Controller: NOT pre-publishing messages...");
+    }
   
     // Wait for user input
     // ROS_INFO("Controller: Press any key to start publishing...");
@@ -136,9 +144,14 @@ int main(int argc, char **argv)
     int loopCount = 0;
     int numTransmitTimes = 0;
 
+    double doneCount = 1;
+    if (PRE_PUBLISH)
+        doneCount = 2;
+
     ros::Rate loop_rate(1000);
     while (ros::ok() && 
-        (numTransmitTimes < NUM_TRANSMIT_TIMES || (rcvCnt1 < 2 || rcvCnt2 < 2 || rcvCnt3 < 2)))
+        (numTransmitTimes < NUM_TRANSMIT_TIMES ||
+            (rcvCnt1 < doneCount || rcvCnt2 < doneCount || rcvCnt3 < doneCount)))
     {
         // Controller only publishes after it receives data from robot
         if (rcvCnt1 > 0 && rcvCnt2 > 0 && rcvCnt3 > 0)
