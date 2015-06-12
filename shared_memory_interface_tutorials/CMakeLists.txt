@@ -133,7 +133,7 @@ target_link_libraries(tutorial_rtt_slave
 	${Boost_LIBRARIES} -lrt
 )
 
-#Initial latency test
+#Initial latency test - Single Publisher Single Subscriber
 add_executable(tutorial_init_latency_test_publisher src/tutorial_init_latency_test_publisher.cpp)
 target_link_libraries(tutorial_init_latency_test_publisher
 	${catkin_LIBRARIES}
@@ -143,6 +143,19 @@ target_link_libraries(tutorial_init_latency_test_publisher
 add_executable(tutorial_init_latency_test_subscriber src/tutorial_init_latency_test_subscriber.cpp)
 target_link_libraries(tutorial_init_latency_test_subscriber
 	${catkin_LIBRARIES} 
+	${Boost_LIBRARIES} -lrt
+)
+
+#Initial latency test - Dual Publisher Dual Subscriber
+add_executable(tutorial_init_latency_test_controller src/tutorial_init_latency_test_controller.cpp)
+target_link_libraries(tutorial_init_latency_test_controller
+	${catkin_LIBRARIES}
+	${Boost_LIBRARIES} -lrt
+)
+
+add_executable(tutorial_init_latency_test_robot src/tutorial_init_latency_test_robot.cpp)
+target_link_libraries(tutorial_init_latency_test_robot
+	${catkin_LIBRARIES}
 	${Boost_LIBRARIES} -lrt
 )
 
