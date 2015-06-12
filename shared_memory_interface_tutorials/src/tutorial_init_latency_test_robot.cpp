@@ -40,7 +40,7 @@
 #define LISTEN_TO_ROS_TOPIC false
 #define USE_POLLING false
 #define WRITE_TO_ROS_TOPIC false
-#define NUM_TRANSMIT_TIMES 1000
+#define NUM_TRANSMIT_TIMES 1
 #define PRE_PUBLISH false // must match value in tutorial_init_latency_test_controller
 
 // Declare the messages to transmit
@@ -167,10 +167,12 @@ int main(int argc, char **argv)
             ROS_INFO_STREAM("Robot: Starting to publish at time " << buffer << tv.tv_usec);
         }
     
-        if (!publishMsgs())
-            break;
-
-        numTransmitTimes++;
+        if (numTransmitTimes < NUM_TRANSMIT_TIMES)
+        {
+            if (!publishMsgs())
+                break;
+            numTransmitTimes++;
+        }
         loop_rate.sleep();
     }
 
