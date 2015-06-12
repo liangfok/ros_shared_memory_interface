@@ -40,7 +40,7 @@
 #define USE_POLLING false
 #define WRITE_TO_ROS_TOPIC false
 #define NUM_TRANSMIT_TIMES 1000
-#define PRE_PUBLISH false
+#define PRE_PUBLISH false // must match value in tutorial_init_latency_test_robot
 
 // Declare the messages to transmit
 std_msgs::Float64 msg1, msg2;
@@ -51,9 +51,11 @@ shared_memory_interface::Publisher<std_msgs::Float64> pub2(WRITE_TO_ROS_TOPIC);
 
 // Declare variables for holding receive state
 int rcvCnt1 = 0, rcvCnt2 = 0, rcvCnt3 = 0;
-
+bool rcvd1 = false, rcvd2 = false, rcvd3 = false;
 struct timeval tv1, tv2, tv3;
 double data1, data2, data3;
+
+int doneRcvCnt = 1;
 
 static void printRcvTime(std::string callbackName, struct timeval & tv, double value)
 {
@@ -83,28 +85,31 @@ bool publishMsgs()
 
 void callback1(std_msgs::Float64& msg)
 {
-    if (++rcvCnt1 == 2)
+    if (++rcvCnt1 == doneRcvCnt)
     {
         gettimeofday(&tv1, NULL);
-        data1 = msg.data; 
+        data1 = msg.data;
+        rcvd1 = true;
     }
 }
 
 void callback2(std_msgs::Float64& msg)
 {
-    if (++rcvCnt2 == 2)
+    if (++rcvCnt2 == doneRcvCnt)
     {
         gettimeofday(&tv2, NULL);
         data2 = msg.data;
+        rcvd2 = true;
     }
 }
 
 void callback3(std_msgs::Float64& msg)
 {
-    if (++rcvCnt3 == 2)
+    if (++rcvCnt3 == doneRcvCnt)
     {
         gettimeofday(&tv3, NULL);
         data3 = msg.data;
+        rcvd3 = true;
     }
 }
 
@@ -128,6 +133,7 @@ int main(int argc, char **argv)
   
     if (PRE_PUBLISH)
     {
+        doneRcvCnt = 2;
         ROS_INFO("Controller: Pre-publishing messages...");
         if (!publishMsgs())
             return -1;
@@ -144,17 +150,12 @@ int main(int argc, char **argv)
     int loopCount = 0;
     int numTransmitTimes = 0;
 
-    double doneCount = 1;
-    if (PRE_PUBLISH)
-        doneCount = 2;
-
     ros::Rate loop_rate(1000);
     while (ros::ok() && 
-        (numTransmitTimes < NUM_TRANSMIT_TIMES ||
-            (rcvCnt1 < doneCount || rcvCnt2 < doneCount || rcvCnt3 < doneCount)))
+        (numTransmitTimes < NUM_TRANSMIT_TIMES || !rcvd1 || !rcvd2 || !rcvd3))
     {
         // Controller only publishes after it receives data from robot
-        if (rcvCnt1 > 0 && rcvCnt2 > 0 && rcvCnt3 > 0)
+        if (rcvd1 && rcvd2 && rcvd3)
         {
             msg1.data = msg2.data = loopCount++;
 
@@ -179,7 +180,6 @@ int main(int argc, char **argv)
         }
         loop_rate.sleep();
     }
-
   
     printRcvTime("callback1", tv1, data1);
     printRcvTime("callback2", tv2, data2);

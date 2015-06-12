@@ -41,7 +41,7 @@
 #define USE_POLLING false
 #define WRITE_TO_ROS_TOPIC false
 #define NUM_TRANSMIT_TIMES 1000
-#define PRE_PUBLISH false
+#define PRE_PUBLISH false // must match value in tutorial_init_latency_test_controller
 
 // Declare the messages to transmit
 std_msgs::Float64 msg1, msg2, msg3;
@@ -53,9 +53,11 @@ shared_memory_interface::Publisher<std_msgs::Float64> pub3(WRITE_TO_ROS_TOPIC);
 
 // Declare variables for holding receive state
 int rcvCnt1 = 0, rcvCnt2 = 0;
-
+bool rcvd1 = false, rcvd2 = false;
 struct timeval tv1, tv2;
 double data1, data2;
+
+int doneRcvCnt = 1;
 
 static void printRcvTime(std::string callbackName, struct timeval & tv, double value)
 {
@@ -91,19 +93,21 @@ bool publishMsgs()
 
 void callback1(std_msgs::Float64& msg)
 {
-    if (++rcvCnt1 == 2)
+    if (++rcvCnt1 == doneRcvCnt)
     {
         gettimeofday(&tv1, NULL);
-        data1 = msg.data; 
+        data1 = msg.data;
+        rcvd1 = true;
     }
 }
 
 void callback2(std_msgs::Float64& msg)
 {
-    if (++rcvCnt2 == 2)
+    if (++rcvCnt2 == doneRcvCnt)
     {
         gettimeofday(&tv2, NULL);
         data2 = msg.data;
+        rcvd2 = true;
     }
 }
 
@@ -126,6 +130,7 @@ int main(int argc, char **argv)
 
     if (PRE_PUBLISH)
     {
+        doneRcvCnt = 2;
         ROS_INFO("Robot: Pre-publishing messages...");
         if (!publishMsgs())
             return -1;
@@ -142,14 +147,9 @@ int main(int argc, char **argv)
     int loopCount = 0;
     int numTransmitTimes = 0;
 
-    double doneCount = 1;
-    if (PRE_PUBLISH)
-        doneCount = 2;
-
     ros::Rate loop_rate(1000);
     while (ros::ok()  && 
-        (numTransmitTimes < NUM_TRANSMIT_TIMES ||
-            (rcvCnt1 < doneCount || rcvCnt2 < doneCount)))
+        (numTransmitTimes < NUM_TRANSMIT_TIMES || !rcvd1 || !rcvd2))
     {
         msg1.data = msg2.data = msg3.data = loopCount++;
     
@@ -169,7 +169,7 @@ int main(int argc, char **argv)
     
         if (!publishMsgs())
             break;
-    
+
         numTransmitTimes++;
         loop_rate.sleep();
     }
