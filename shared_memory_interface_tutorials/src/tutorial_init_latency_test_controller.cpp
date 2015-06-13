@@ -40,7 +40,7 @@
 #define USE_POLLING false
 #define WRITE_TO_ROS_TOPIC false
 #define NUM_TRANSMIT_TIMES 1
-#define PRE_PUBLISH false // must match value in tutorial_init_latency_test_robot
+#define PRE_PUBLISH true // must match value in tutorial_init_latency_test_robot
 
 // Declare the messages to transmit
 std_msgs::Float64 msg1, msg2;
