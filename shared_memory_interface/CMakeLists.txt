@@ -83,7 +83,7 @@ find_package(PythonLibs REQUIRED)
 catkin_package(
   INCLUDE_DIRS include
   # LIBRARIES shared_memory_interface
-  # CATKIN_DEPENDS message_runtime roscpp roslib
+  CATKIN_DEPENDS roscpp roslib
   CATKIN_DEPENDS roscpp roslib
   DEPENDS Boost
 )
@@ -95,7 +95,13 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 # include_directories(include ../common/include SYSTEM ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
-include_directories(include SYSTEM ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
+include_directories(
+  include
+  SYSTEM
+  ${Boost_INCLUDE_DIRS}
+  ${PYTHON_INCLUDE_DIRS}
+  ${catkin_INCLUDE_DIRS}
+)
 
 ## Shared memory library
 # add_library(shared_memory_interface
