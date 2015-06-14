@@ -145,7 +145,6 @@ namespace shared_memory_interface
       T msg;
       std::string serialized_data;
 
-      ros::Rate loop_rate(10.0);
       while(ros::ok()) //wait for the field to at least have something
       {
         if(!smt->initialized())
@@ -162,7 +161,7 @@ namespace shared_memory_interface
           break;
         }
         ROS_WARN_STREAM_THROTTLE(1.0, m_nh->getNamespace() << ": Trying to connect to field " << smt->getFieldName() << "...");
-        loop_rate.sleep();
+        usleep(1e5);  // 100ms (10Hz)
         boost::this_thread::interruption_point();
       }
 
