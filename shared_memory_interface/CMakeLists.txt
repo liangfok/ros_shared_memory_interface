@@ -135,6 +135,25 @@ target_link_libraries(shared_memory_manager
   ${Boost_LIBRARIES} -lrt
 )
 
+install(TARGETS shared_memory_remover shared_memory_manager
+    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+        
+install(DIRECTORY scripts
+    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+    PATTERN "scripts/*"
+    PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
+                GROUP_EXECUTE GROUP_READ
+)
+
+install(DIRECTORY include/${PROJECT_NAME}/
+    DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+    FILES_MATCHING PATTERN "*.hpp"
+)
+
+
+
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 # add_dependencies(shared_memory_interface ros_shared_memory_interface_generate_messages_cpp)
