@@ -43,6 +43,7 @@
 #include <stdio.h>
 #include <algorithm>
 #include <stdlib.h>
+#include <fstream>
 
 #include <unistd.h>
 #include <pwd.h>
@@ -116,7 +117,7 @@ namespace shared_memory_interface
     {
       std::string shmmax_string;
       std::getline(shmmax_file_read, shmmax_string);
-      unsigned int shmmax = atof(shmmax_string.c_str());
+      unsigned long long int shmmax = atof(shmmax_string.c_str());
       shmmax_file_read.close();
       if(shmmax < size)
       {
